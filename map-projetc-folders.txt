@@ -1,0 +1,10 @@
+react-mapdraw-navigator/
+└── src/
+    ├── components/
+    │   ├── MapImageViewer.tsx
+    │   └── NavigationControls.tsx
+    ├── hooks/
+    │   └── useMapNavigation.ts
+    └── App.tsx  # Or Mapdraw.tsx if you prefer, imported into App.tsx
+    ├── data/
+    │   ├── map-data.json
