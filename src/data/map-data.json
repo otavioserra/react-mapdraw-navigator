@@ -4,18 +4,18 @@
         "hotspots": [
             {
                 "id": "root_spot1",
-                "x": 10,
-                "y": 20,
-                "width": 15,
-                "height": 15,
+                "x": 13.5,
+                "y": 13,
+                "width": 25.7,
+                "height": 14,
                 "link_to_map_id": "childMapA"
             },
             {
                 "id": "root_spot2",
-                "x": 70,
-                "y": 60,
-                "width": 20,
-                "height": 20,
+                "x": 73.2,
+                "y": 48.5,
+                "width": 25.7,
+                "height": 13.5,
                 "link_to_map_id": "childMapB"
             }
         ]
@@ -25,46 +25,20 @@
         "hotspots": [
             {
                 "id": "childA_spot1",
-                "x": 30,
-                "y": 50,
-                "width": 25,
+                "x": 39,
+                "y": 31.5,
+                "width": 20,
                 "height": 25,
                 "link_to_map_id": "grandchildMapX"
-            },
-            {
-                "id": "childA_spot2_back",
-                "x": 5,
-                "y": 5,
-                "width": 10,
-                "height": 10,
-                "link_to_map_id": "rootMap"
             }
         ]
     },
     "childMapB": {
         "imageUrl": "/images/maps/childB.svg",
-        "hotspots": [
-            {
-                "id": "childB_spot1_back",
-                "x": 85,
-                "y": 85,
-                "width": 10,
-                "height": 10,
-                "link_to_map_id": "rootMap"
-            }
-        ]
+        "hotspots": []
     },
     "grandchildMapX": {
         "imageUrl": "/images/maps/grandchildX.jpg",
-        "hotspots": [
-            {
-                "id": "grandX_spot1_back",
-                "x": 15,
-                "y": 75,
-                "width": 10,
-                "height": 10,
-                "link_to_map_id": "childMapA"
-            }
-        ]
+        "hotspots": []
     }
 }
