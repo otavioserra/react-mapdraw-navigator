@@ -1,9 +1,12 @@
+// src/Mapdraw.tsx
 import React, { useCallback, useState, ChangeEvent } from 'react';
-import Modal from 'react-modal';
+import Modal from 'react-modal'; // Using react-modal for the popup
 import MapImageViewer from './components/MapImageViewer';
 import NavigationControls from './components/NavigationControls';
-import { useMapNavigation, Hotspot } from './hooks/useMapNavigation';
+// Import types and the specific hook function name
+import { useMapNavigation, Hotspot, MapCollection } from './hooks/useMapNavigation';
 
+// Interface for the rectangle coordinates (relative percentages) from drawing
 interface RelativeRect {
     x: number;
     y: number;
@@ -11,12 +14,23 @@ interface RelativeRect {
     height: number;
 }
 
+// Props for the Mapdraw component
 interface MapdrawProps {
-    rootMapId: string;
-    className?: string;
+    rootMapId: string; // ID of the initial map to display
+    className?: string; // Optional CSS class for the container
+    initialDataJsonString?: string; // Optional JSON string for initial data
 }
 
-const Mapdraw: React.FC<MapdrawProps> = ({ rootMapId, className }) => {
+// Helper to generate a simple unique ID part (replace if needed)
+const generateUniqueIdPart = () => Date.now().toString(36) + Math.random().toString(36).substring(2, 5);
+
+// The main Mapdraw component
+const Mapdraw: React.FC<MapdrawProps> = ({
+    rootMapId,
+    className,
+    initialDataJsonString
+}) => {
+    // Use the custom navigation hook
     const {
         currentMapId,
         currentMapDisplayData,
@@ -24,157 +38,245 @@ const Mapdraw: React.FC<MapdrawProps> = ({ rootMapId, className }) => {
         navigateBack,
         canGoBack,
         error,
-        addHotspot,
-    } = useMapNavigation(rootMapId);
+        addHotspotAndMapDefinition, // Get the function to add hotspot and map def
+        managedMapData, // Get current data state for validation/export
+    } = useMapNavigation(rootMapId, initialDataJsonString);
 
-    // State for Edit Mode
-    const [isEditMode, setIsEditMode] = useState<boolean>(false);
+    // --- Component State ---
+    const [isEditMode, setIsEditMode] = useState<boolean>(false); // Toggle for edit mode
+    const [isModalOpen, setIsModalOpen] = useState<boolean>(false); // Controls modal visibility
+    const [newHotspotRect, setNewHotspotRect] = useState<RelativeRect | null>(null); // Stores drawn rect coords
 
-    // --- State for Modal ---
-    const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
-    const [newHotspotRect, setNewHotspotRect] = useState<RelativeRect | null>(null);
-    // --- State for Modal Input ---
-    const [linkIdInput, setLinkIdInput] = useState(''); // Move input state here
+    // --- State for Modal Inputs ---
+    const [newMapIdInput, setNewMapIdInput] = useState(''); // Input for the NEW MAP's ID
+    const [newMapUrlInput, setNewMapUrlInput] = useState(''); // Input for the NEW MAP's Image URL
 
+    // --- Event Handlers ---
+
+    // Handles clicks on existing hotspots (navigates if not in edit mode)
     const handleHotspotClick = useCallback((mapId: string) => {
         if (!isEditMode) {
             navigateToChild(mapId);
         }
     }, [navigateToChild, isEditMode]);
 
+    // Called by MapImageViewer when a rectangle is drawn in edit mode
     const handleHotspotDrawn = useCallback((relativeRect: RelativeRect) => {
         console.log('New Hotspot Drawn (Relative %):', relativeRect);
         setNewHotspotRect(relativeRect);
-        setLinkIdInput(''); // Clear input when opening modal
-        setIsModalOpen(true);
+        // Suggest a unique ID for the new map when opening the modal
+        const suggestedMapId = `map_${generateUniqueIdPart()}`;
+        setNewMapIdInput(suggestedMapId); // Pre-fill Map ID input
+        setNewMapUrlInput(''); // Clear URL input
+        setIsModalOpen(true); // Open the modal
     }, []);
 
-    // --- Modal Save Handler ---
-    const handleModalSave = useCallback(() => { // No longer receives linkedMapId as argument
-        const linkedMapId = linkIdInput.trim(); // Get value from input state
-        if (!linkedMapId) {
-            alert('Please enter a Map ID to link to.');
+    // Handles the submission of the modal form
+    const handleModalSubmit = useCallback(() => {
+        const newMapId = newMapIdInput.trim(); // Get and trim the new map ID
+        const newMapUrl = newMapUrlInput.trim(); // Get and trim the new map URL
+
+        // --- Input Validation ---
+        if (!newMapId) {
+            alert('Please enter a unique ID for the new map.');
             return;
         }
-        if (!newHotspotRect || !currentMapId || !addHotspot) return;
+        if (!newMapUrl) {
+            alert('Please enter the image URL for the new map.');
+            return;
+        }
+        // Basic URL validation (allow relative paths starting with /)
+        try {
+            new URL(newMapUrl);
+        } catch (_) {
+            if (!newMapUrl.startsWith('/')) {
+                alert('Please enter a valid image URL (starting with http://, https://, or / for local public images).');
+                return;
+            }
+        }
 
-        const newHotspotId = `hs_${currentMapId}_${Date.now()}`;
-        const newHotspot: Hotspot = {
-            id: newHotspotId,
-            link_to_map_id: linkedMapId,
-            ...newHotspotRect,
+        // Check if required data is available
+        if (!newHotspotRect || !currentMapId || !addHotspotAndMapDefinition) {
+            console.error("Missing data required to add hotspot/map definition.");
+            alert("An internal error occurred. Cannot save hotspot.");
+            return;
         };
-        addHotspot(newHotspot);
-        console.log('Added new hotspot:', newHotspot);
-        setIsModalOpen(false);
-        // setNewHotspotRect(null); // Resetting rect is not strictly necessary here
-    }, [newHotspotRect, currentMapId, addHotspot, linkIdInput]); // Add linkIdInput to dependencies
 
-    // --- Modal Cancel/Close Handler ---
+        // --- IMPORTANT: Validate if newMapId already exists in the data ---
+        if (managedMapData && managedMapData[newMapId]) {
+            alert(`Error: Map ID "${newMapId}" already exists. Please choose a unique ID.`);
+            return; // Stop submission if ID is duplicate
+        }
+
+        // --- Generate a unique ID FOR THE HOTSPOT element itself ---
+        const hotspotId = `hs_${currentMapId}_${generateUniqueIdPart()}`;
+
+        // --- Construct the New Hotspot object CORRECTLY ---
+        const newHotspot: Hotspot = {
+            id: hotspotId, // Unique ID for this specific hotspot element
+            x: newHotspotRect.x, // Use coordinates from the drawn rectangle
+            y: newHotspotRect.y,
+            width: newHotspotRect.width,
+            height: newHotspotRect.height,
+            link_to_map_id: newMapId // <<< CRITICAL: Link to the NEW map's ID
+        };
+
+        // --- Call the hook function to add BOTH the hotspot and the new map definition ---
+        addHotspotAndMapDefinition(currentMapId, newHotspot, newMapUrl);
+
+        console.log(`Added new hotspot '${hotspotId}' linking to new map '${newMapId}' with image '${newMapUrl}'`);
+        setIsModalOpen(false); // Close modal on successful submission
+
+    }, [
+        newMapIdInput, // Dependency on modal input state
+        newMapUrlInput, // Dependency on modal input state
+        newHotspotRect, // Dependency on drawn rectangle data
+        currentMapId, // Dependency on the current map where hotspot is added
+        addHotspotAndMapDefinition, // Dependency on the hook function
+        managedMapData // Dependency for duplicate ID check
+    ]);
+
+    // Handles closing the modal (cancel button, overlay click, ESC)
     const handleModalCancel = useCallback(() => {
         setIsModalOpen(false);
-        // setNewHotspotRect(null); // Resetting rect is not strictly necessary here
     }, []);
 
+    // Toggles the edit mode state
     const toggleEditMode = () => {
         setIsEditMode(prev => !prev);
     };
 
-    const containerClasses = `mapdraw-container ${className || ''}`.trim();
+    // Handles exporting the current map data state to a JSON file
+    const handleExportJson = useCallback(() => {
+        if (!managedMapData) {
+            console.error("No map data available to export.");
+            alert("Error: No map data available to export.");
+            return;
+        }
+        try {
+            const jsonString = JSON.stringify(managedMapData, null, 2); // Pretty print
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'map-data.json'; // Filename for download
+            document.body.appendChild(link);
+            link.click(); // Trigger download
+            document.body.removeChild(link); // Clean up link
+            URL.revokeObjectURL(url); // Clean up object URL
+            console.log("Map data exported successfully.");
+        } catch (err) {
+            console.error("Failed to export map data:", err);
+            alert(`Error exporting JSON: ${err instanceof Error ? err.message : String(err)}`);
+        }
+    }, [managedMapData]); // Depends on the current data state
 
-    const editButtonStyle: React.CSSProperties = {
-        position: 'absolute', top: '10px', right: '10px', zIndex: 10,
+    // --- Styling (Consider moving to Tailwind classes or CSS Modules) ---
+    const containerClasses = `mapdraw-container relative ${className || ''}`.trim(); // Added relative positioning
+    const baseButtonStyle: React.CSSProperties = {
         padding: '5px 10px', cursor: 'pointer',
-        backgroundColor: isEditMode ? '#ffdddd' : '#ddffdd',
         border: '1px solid #ccc', borderRadius: '4px',
+        whiteSpace: 'nowrap' // Prevent button text wrapping
     };
+    const controlsContainerStyle: React.CSSProperties = {
+        position: 'absolute', top: '10px', right: '10px', zIndex: 10, display: 'flex', gap: '10px'
+    };
+    // Basic styles for modal inputs
+    const inputLabelStyle: React.CSSProperties = { display: 'block', marginBottom: '5px', fontWeight: 'bold' };
+    const inputStyle: React.CSSProperties = { display: 'block', width: '100%', padding: '8px', marginBottom: '15px', border: '1px solid #ccc', borderRadius: '3px', boxSizing: 'border-box' };
+    const modalButtonStyle: React.CSSProperties = { /* Define styles or use Tailwind */ };
 
-    // --- Styles for react-modal (optional, can use CSS classes) ---
-    const customModalStyles: ReactModal.Styles = {
-        overlay: {
-            backgroundColor: 'rgba(0, 0, 0, 0.6)',
-            zIndex: 100,
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-        },
-        content: {
-            position: 'relative', // Reset position
-            inset: 'auto', // Reset inset
-            border: '1px solid #ccc',
-            background: '#fff',
-            overflow: 'auto',
-            WebkitOverflowScrolling: 'touch',
-            borderRadius: '5px',
-            outline: 'none',
-            padding: '20px 30px',
-            minWidth: '300px', // Example min width
-            maxWidth: '500px', // Example max width
-        },
-    };
-    // --- Styles for elements inside the modal ---
-    const inputStyle: React.CSSProperties = {
-        display: 'block', width: '100%', padding: '8px',
-        marginBottom: '15px', border: '1px solid #ccc', borderRadius: '3px', boxSizing: 'border-box'
-    };
-    const buttonStyle: React.CSSProperties = {
-        padding: '8px 15px', margin: '0 5px', cursor: 'pointer',
-        border: '1px solid #ccc', borderRadius: '3px',
-    };
-    // --- End styles ---
-
+    // --- Render Logic ---
     return (
-        <div className={containerClasses} style={{ position: 'relative' }}>
+        <div className={containerClasses}> {/* Use className for container */}
 
-            <button onClick={toggleEditMode} style={editButtonStyle}>
-                {isEditMode ? 'Exit Edit Mode' : 'Enter Edit Mode'}
-            </button>
+            {/* Control Buttons (Export, Edit Mode Toggle) */}
+            <div style={controlsContainerStyle}>
+                <button onClick={handleExportJson} style={{ ...baseButtonStyle, backgroundColor: '#ddeeff' }}>
+                    Export JSON
+                </button>
+                <button onClick={toggleEditMode} style={{ ...baseButtonStyle, backgroundColor: isEditMode ? '#ffdddd' : '#ddffdd' }}>
+                    {isEditMode ? 'Exit Edit Mode' : 'Enter Edit Mode'}
+                </button>
+            </div>
 
+            {/* Navigation Controls (Back Button) */}
             <NavigationControls
                 onBack={navigateBack}
-                isBackEnabled={canGoBack && !isEditMode}
+                isBackEnabled={canGoBack && !isEditMode} // Disable back button in edit mode
             />
 
-            {error && <div style={{ color: 'red', padding: '10px', border: '1px solid red', margin: '10px 0' }}>Error: {error}</div>}
+            {/* Display Error Messages */}
+            {error && <div className="p-3 my-3 border border-red-500 text-red-700 bg-red-100 rounded">Error: {error}</div>}
 
+            {/* Display Map Viewer if data is available and no error */}
             {currentMapDisplayData && !error && (
                 <MapImageViewer
-                    key={currentMapId}
+                    key={currentMapId} // Key helps React reset state if needed on map change
                     imageUrl={currentMapDisplayData.imageUrl}
                     hotspots={currentMapDisplayData.hotspots}
                     onHotspotClick={handleHotspotClick}
                     isEditMode={isEditMode}
-                    onHotspotDrawn={handleHotspotDrawn}
+                    onHotspotDrawn={handleHotspotDrawn} // Pass the callback for drawing
                 />
             )}
 
+            {/* Display message if map data is not available */}
             {!currentMapDisplayData && !error && (
-                <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
-                    Map data is not available. Ensure the rootMapId ('{rootMapId}') exists in map-data.json.
+                <div className="p-5 text-center text-gray-500">
+                    Map data is not available. Ensure the rootMapId ('{rootMapId}') exists in the loaded map data.
                 </div>
             )}
 
-            {/* Render the Modal using react-modal */}
+            {/* Modal for Creating New Hotspot and Map */}
             <Modal
                 isOpen={isModalOpen}
-                onRequestClose={handleModalCancel} // Function called on overlay click or ESC press
-                style={customModalStyles} // Apply custom styles
-                contentLabel="Link New Hotspot Modal" // Label for accessibility
+                onRequestClose={handleModalCancel} // Close on overlay click or ESC
+                // style={customModalStyles} // Apply custom styles or use Tailwind classes
+                contentLabel="Create New Hotspot and Map" // Accessibility label
+                // Use Tailwind classes for modal styling if preferred
+                className="m-auto bg-white p-6 rounded shadow-lg max-w-md w-full outline-none"
+                overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
             >
-                {/* Modal Content */}
-                <h3>Link New Hotspot</h3>
-                <label htmlFor="linkIdInput">Enter Target Map ID:</label>
+                <h3 className="text-xl font-bold mb-4">Create New Hotspot and Linked Map</h3>
+
+                {/* Input for New Map ID */}
+                <label htmlFor="newMapIdInput" style={inputLabelStyle}>New Map ID:</label>
                 <input
-                    id="linkIdInput"
+                    id="newMapIdInput"
                     type="text"
-                    value={linkIdInput} // Controlled by linkIdInput state
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => setLinkIdInput(e.target.value)} // Update state
-                    style={inputStyle}
-                    autoFocus
+                    value={newMapIdInput}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => setNewMapIdInput(e.target.value)}
+                    style={inputStyle} // Or use Tailwind classes
+                    placeholder="Enter a unique ID (e.g., detail_view_1)"
+                    autoFocus // Focus on this input when modal opens
                 />
-                <div style={{ textAlign: 'right', marginTop: '10px' }}> {/* Align buttons right */}
-                    <button onClick={handleModalSave} style={{ ...buttonStyle, backgroundColor: '#d4edda' }}>Save</button>
-                    <button onClick={handleModalCancel} style={{ ...buttonStyle, backgroundColor: '#f8d7da', marginLeft: '8px' }}>Cancel</button>
+
+                {/* Input for New Map Image URL */}
+                <label htmlFor="newMapUrlInput" style={inputLabelStyle}>New Map Image URL:</label>
+                <input
+                    id="newMapUrlInput"
+                    type="text"
+                    value={newMapUrlInput}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => setNewMapUrlInput(e.target.value)}
+                    style={inputStyle} // Or use Tailwind classes
+                    placeholder="Enter image URL (http://... or /images/...)"
+                />
+
+                {/* Modal Action Buttons */}
+                <div className="text-right mt-4 space-x-3">
+                    <button
+                        onClick={handleModalSubmit}
+                        className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+                    >
+                        Save Hotspot & Create Map
+                    </button>
+                    <button
+                        onClick={handleModalCancel}
+                        className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+                    >
+                        Cancel
+                    </button>
                 </div>
             </Modal>
         </div>
