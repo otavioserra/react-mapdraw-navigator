@@ -21,8 +21,10 @@
   },
   "homepage": "https://github.com/otavioserra/react-mapdraw-navigator#readme",
   "dependencies": {
+    "@types/react-modal": "^3.16.3",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "react-modal": "^3.16.3"
   },
   "devDependencies": {
     "@types/react": "^19.1.2",
