@@ -34,8 +34,8 @@ const Mapdraw: React.FC<MapdrawProps> = ({
     const [isEditMode, setIsEditMode] = useState<boolean>(false); // <<< Keep this state
     const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
     const [newHotspotRect, setNewHotspotRect] = useState<RelativeRect | null>(null);
-    const [newMapIdInput, setNewMapIdInput] = useState('');
     const [newMapUrlInput, setNewMapUrlInput] = useState('');
+    const [pendingGeneratedMapId, setPendingGeneratedMapId] = useState<string | null>(null);
 
     // --- Event Handlers ---
     const handleHotspotClick = useCallback((mapId: string) => {
@@ -43,76 +43,98 @@ const Mapdraw: React.FC<MapdrawProps> = ({
     }, [navigateToChild]);
     const handleHotspotDrawn = useCallback((rect: RelativeRect) => {
         setNewHotspotRect(rect);
+        const generatedMapId = `map_${generateUniqueIdPart()}`; // Generate ID
+        setPendingGeneratedMapId(generatedMapId); // Store generated ID
+        setNewMapUrlInput(''); // Clear URL input
         setIsModalOpen(true);
     }, []);
     const handleModalCancel = useCallback(() => {
         setIsModalOpen(false);
         setNewHotspotRect(null);
-        setNewMapIdInput('');
         setNewMapUrlInput('');
+        setPendingGeneratedMapId(null); // Reset the pending generated ID
     }, []);
 
-    const handleModalSubmit = useCallback((event: FormEvent) => { // Added FormEvent type
+    // MODIFY the block starting around Line 50:
+    const handleModalSubmit = useCallback((event: FormEvent) => {
         event.preventDefault(); // Prevent default form submission
 
-        // --- ADD THIS CHECK ---
+        // --- Step 3: Add check for pendingGeneratedMapId ---
+        if (!pendingGeneratedMapId) {
+            console.error("Submission failed: No generated Map ID available.");
+            alert("An internal error occurred. Please try creating the hotspot again.");
+            handleModalCancel(); // Close modal and clear state
+            return;
+        }
+        // Use the generated ID from state for further processing
+        const newMapId = pendingGeneratedMapId;
+        // --- End Step 3 check ---
+
         // Ensure a map is currently loaded before trying to add a hotspot
+        // (Keep this check from previous steps)
         if (!currentMapId) {
             alert("Cannot add hotspot: No map is currently loaded.");
             console.error("handleModalSubmit called but currentMapId is null.");
             return; // Stop the submission
         }
-        // --- END CHECK ---
 
         // Ensure hotspot rectangle data exists
+        // (Keep this check from previous steps)
         if (!newHotspotRect) {
             console.error("handleModalSubmit called but newHotspotRect is null.");
-            // Optionally show an alert to the user
-            // alert("An error occurred: Hotspot location data is missing.");
             return; // Stop the submission
         }
 
-        // Validate inputs
-        const mapId = newMapIdInput.trim(); // Use trimmed values
-        const mapUrl = newMapUrlInput.trim();
-        if (!mapId || !mapUrl) {
-            alert("Please fill in both Map ID and Map URL.");
+        // Get and validate URL input
+        const newMapUrl = newMapUrlInput.trim(); // <<< Keep getting URL from input state
+        if (!newMapUrl) { // <<< Keep URL validation
+            alert("Please fill in the Map URL."); // Adjusted alert message
             return;
         }
+        // Basic URL validation (optional but recommended)
+        try { new URL(newMapUrl); } catch (_) { if (!newMapUrl.startsWith('/')) { alert('Please enter a valid image URL...'); return; } }
 
-        // --- Add duplicate check ---
-        if (managedMapData && managedMapData[mapId]) {
-            alert(`Error: Map ID "${mapId}" already exists. Please choose a unique ID.`);
+
+        // Check for duplicate ID using the generated newMapId
+        // (Keep this check from previous steps)
+        if (managedMapData && managedMapData[newMapId]) {
+            alert(`Error: Map ID "${newMapId}" already exists. This should not happen with generated IDs, but checking anyway.`);
+            // If this happens, the ID generation logic might need improvement
             return;
         }
-        // --- End duplicate check ---
-
 
         // Create new hotspot object
+        // (Confirm link_to_map_id uses the generated newMapId)
         const newHotspot: Hotspot = {
-            id: `hs_${currentMapId}_${generateUniqueIdPart()}`, // Use currentMapId in ID for context
+            id: `hs_${currentMapId}_${generateUniqueIdPart()}`,
             x: newHotspotRect.x,
             y: newHotspotRect.y,
             width: newHotspotRect.width,
             height: newHotspotRect.height,
-            link_to_map_id: mapId, // Use validated mapId
+            link_to_map_id: newMapId, // <<< Correctly uses the generated ID
         };
 
-        // Now currentMapId is guaranteed to be a string here
-        addHotspotAndMapDefinition(currentMapId, newHotspot, mapUrl); // Pass validated mapUrl
+        // Call hook function
+        // (Confirm arguments are correct: currentMapId, newHotspot, newMapUrl)
+        addHotspotAndMapDefinition(currentMapId, newHotspot, newMapUrl);
+
+        console.log(`Added new hotspot '${newHotspot.id}' linking to new map '${newMapId}' with image '${newMapUrl}'`);
 
         // Reset state and close modal
-        handleModalCancel(); // Reuse cancel logic to reset inputs and close
+        // (Keep cleanup logic - calling handleModalCancel covers resetting pendingGeneratedMapId)
+        handleModalCancel();
 
     }, [
-        currentMapId, // <<< Add currentMapId as dependency
+        // Update dependencies
+        currentMapId,
         newHotspotRect,
-        newMapIdInput,
+        pendingGeneratedMapId, // Keep this dependency
         newMapUrlInput,
         addHotspotAndMapDefinition,
         handleModalCancel,
-        managedMapData // <<< Add managedMapData as dependency
+        managedMapData
     ]);
+    // --- End of handleModalSubmit modification ---
 
     // --- Keep toggleEditMode function ---
     const toggleEditMode = () => {
@@ -175,6 +197,7 @@ const Mapdraw: React.FC<MapdrawProps> = ({
                 </div>
             )}
 
+
             <Modal
                 isOpen={isModalOpen}
                 onRequestClose={handleModalCancel}
@@ -185,26 +208,19 @@ const Mapdraw: React.FC<MapdrawProps> = ({
                 className="m-auto bg-white p-6 rounded-lg shadow-xl max-w-md w-11/12 outline-none" // Styles the modal content box
                 overlayClassName="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50" // Styles the background overlay
             >
-                {/* Apply Tailwind classes to modal content */}
                 <h2 className="text-xl font-semibold mb-5 text-gray-800">Add New Hotspot</h2>
-                {/* Use form element for better accessibility and handling */}
                 <form onSubmit={handleModalSubmit}>
-                    <div className="mb-4">
-                        <label htmlFor="mapId" className="block text-gray-700 text-sm font-medium mb-2">
-                            New Map ID:
-                        </label>
-                        <input
-                            type="text"
-                            id="mapId"
-                            value={newMapIdInput}
-                            onChange={(e) => setNewMapIdInput(e.target.value)}
-                            // Apply Tailwind classes to input
-                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                            placeholder="Enter a unique ID (e.g., detail_view_1)"
-                            required
-                            autoFocus
-                        />
-                    </div>
+                    {pendingGeneratedMapId && (
+                        <div className="mb-4">
+                            <p className="text-sm text-gray-600">
+                                Generated Map ID:
+                                <strong className="ml-2 font-mono select-all bg-gray-100 px-1 py-0.5 rounded">
+                                    {pendingGeneratedMapId}
+                                </strong>
+                            </p>
+                        </div>
+                    )}
+
                     <div className="mb-6">
                         <label htmlFor="mapUrl" className="block text-gray-700 text-sm font-medium mb-2">
                             New Map Image URL:
@@ -214,25 +230,22 @@ const Mapdraw: React.FC<MapdrawProps> = ({
                             id="mapUrl"
                             value={newMapUrlInput}
                             onChange={(e) => setNewMapUrlInput(e.target.value)}
-                            // Apply Tailwind classes to input
                             className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                             placeholder="Enter image URL (http://... or /images/...)"
                             required
+                            autoFocus
                         />
                     </div>
-                    {/* Apply Tailwind classes to button container and buttons */}
                     <div className="flex items-center justify-end space-x-3 mt-6">
                         <button
-                            type="button" // Explicitly type="button" for cancel
+                            type="button"
                             onClick={handleModalCancel}
-                            // Style for Cancel button
                             className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
                         >
                             Cancel
                         </button>
                         <button
-                            type="submit" // Submit button
-                            // Style for Add/Save button
+                            type="submit"
                             className="px-4 py-2 bg-indigo-600 text-white rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                         >
                             Add Hotspot
