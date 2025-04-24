@@ -1,7 +1,9 @@
 // src/components/MapImageViewer.tsx
 import React, { useState, useRef, MouseEvent } from 'react';
-// Assuming Hotspot type is defined in useMapNavigation and exported
-import { Hotspot, MapDisplayData, EditAction } from '../hooks/useMapNavigation';
+import classNames from 'classnames';
+import { Hotspot, EditAction } from '../hooks/useMapNavigation';
+import MapHotspotDisplay from './MapHotspotDisplay';
+import Container from './Container';
 
 // Define types for coordinates and rectangles used internally
 interface Coords {
@@ -120,179 +122,86 @@ const MapImageViewer: React.FC<MapImageViewerProps> = ({
         setCurrentRect(null);
     };
 
-    // --- Styles ---
-    const containerStyle: React.CSSProperties = {
-        position: 'relative',
-        display: 'inline-block',
-        maxWidth: '100%',
-        lineHeight: '0',
-        cursor: isEditMode ? 'crosshair' : 'default',
-        userSelect: 'none',
-    };
-
-    const imageStyle: React.CSSProperties = {
-        display: 'block',
-        maxWidth: '100%',
-        height: 'auto',
-        pointerEvents: isEditMode ? 'none' : 'auto', // Prevent image interaction during drawing
-    };
-
-    // --- Updated Hotspot Styling ---
-    const getHotspotStyle = (hotspot: Hotspot): React.CSSProperties => {
-        const baseStyle: React.CSSProperties = {
-            position: 'absolute',
-            left: `${hotspot.x}%`,
-            top: `${hotspot.y}%`,
-            width: `${hotspot.width}%`,
-            height: `${hotspot.height}%`,
-            boxSizing: 'border-box',
-            transition: 'background-color 0.2s ease, border 0.2s ease, box-shadow 0.2s ease', // Added box-shadow transition
-            zIndex: 1,
-        };
-
-        // Determine if this hotspot is selected for deletion
-        const isSelectedForDeletion = isEditMode && editAction === 'selecting_for_deletion' && hotspot.id === hotspotToDeleteId;
-
-        if (isEditMode) {
-            if (editAction === 'selecting_for_deletion') {
-                // Specific styles for selection mode
-                return {
-                    ...baseStyle,
-                    cursor: 'pointer', // Make it clickable for selection
-                    backgroundColor: isSelectedForDeletion
-                        ? 'rgba(255, 0, 0, 0.4)' // Stronger red background if selected
-                        : 'rgba(255, 0, 0, 0.1)', // Light red tint if selectable
-                    border: isSelectedForDeletion
-                        ? '2px solid red' // Solid red border if selected
-                        : '1px dashed rgba(255, 0, 0, 0.7)', // Dashed red border if selectable
-                    pointerEvents: 'auto', // Make it clickable
-                    boxShadow: isSelectedForDeletion ? '0 0 8px 2px rgba(255, 0, 0, 0.7)' : 'none', // Glow effect when selected
-                };
-            } else if (editAction === 'adding') {
-                // Style while adding (visible but non-interactive)
-                return {
-                    ...baseStyle,
-                    cursor: 'crosshair', // Match container cursor maybe? Or default.
-                    backgroundColor: 'rgba(255, 165, 0, 0.1)', // Orange tint
-                    border: '1px dashed orange',
-                    pointerEvents: 'none', // Clicks pass through for drawing
-                };
-            } else { // isEditMode but action is 'none'
-                return { // Similar to adding mode, maybe less prominent
-                    ...baseStyle,
-                    cursor: 'default',
-                    backgroundColor: 'rgba(200, 200, 200, 0.1)',
-                    border: '1px dashed #aaa',
-                    pointerEvents: 'none',
-                };
-            }
-        } else {
-            // Style for View Mode (clickable for navigation)
-            return {
-                ...baseStyle,
-                cursor: 'pointer',
-                backgroundColor: 'rgba(0, 255, 0, 0.1)', // Green tint
-                border: '1px dashed rgba(0, 0, 0, 0.4)',
-                pointerEvents: 'auto', // Allow clicks
-            };
+    // --- Add Dynamic Classes Calculation ---
+    const containerClasses = classNames(
+        "relative inline-block max-w-full leading-none select-none", // Base styles from old containerStyle
+        { // Dynamic cursor based on edit mode and action
+            'cursor-crosshair': isEditMode && editAction === 'adding',
+            'cursor-default': !isEditMode || (isEditMode && editAction !== 'adding'),
         }
+    );
+
+    const imageClasses = classNames(
+        "block max-w-full h-auto", // Base styles from old imageStyle
+        { // Disable pointer events ONLY when drawing
+            'pointer-events-none': isEditMode && editAction === 'adding'
+        }
+    );
+
+    // --- Add Unified Hotspot Interaction Handler ---
+    // This simplifies props passed to MapHotspotDisplay
+    const handleHotspotInteraction = (hotspotId: string, linkToMapId: string) => {
+        if (isEditMode && editAction === 'selecting_for_deletion') {
+            onSelectHotspotForDeletion(hotspotId); // Select/deselect logic
+        } else if (!isEditMode) {
+            onHotspotClick(linkToMapId); // Navigate in view mode
+        }
+        // Clicks are ignored in other edit modes ('adding', 'none')
     };
 
-    const drawingRectStyle: React.CSSProperties = {
-        position: 'absolute',
-        border: '2px dashed red', // Make it more visible
-        backgroundColor: 'rgba(255, 0, 0, 0.1)',
-        boxSizing: 'border-box',
-        pointerEvents: 'none',
-        zIndex: 5, // Ensure drawing rectangle is above existing hotspots
+    // --- Add Container Background Click Handler ---
+    const handleContainerClick = (e: MouseEvent<HTMLDivElement>) => {
+        // Clear selection if clicking directly on the container background
+        // while in selection mode
+        if (editAction === 'selecting_for_deletion' && e.target === containerRef.current) {
+            onClearSelection();
+        }
+        // Do NOT handle drawing start here (use onMouseDown)
     };
 
+    // --- Drawing Rectangle Classes --- (Define classes separately)
+    const drawingRectClasses = "absolute border-2 border-dashed border-red-500 bg-red-500/10 box-border pointer-events-none z-[5]";
+
+    // Now the return statement follows...
+
+    // Replace the entire return statement (around line 213 onwards)
     return (
-        <div
+        <Container // Changed from div
             ref={containerRef}
-            style={containerStyle}
+            className={containerClasses} // Pass the calculated classes
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp} // Stop drawing if mouse leaves container
-            onClick={(e) => {
-                // Only clear if clicking directly on the container (not a hotspot)
-                // and in selection mode
-                if (editAction === 'selecting_for_deletion' && e.target === containerRef.current) {
-                    onClearSelection();
-                }
-            }}
+            onMouseLeave={handleMouseUp} // Stop drawing if mouse leaves
+            onClick={handleContainerClick} // Handle background clicks
+        // We use variant="default" implicitly or could add a specific one if needed
         >
-            <img ref={imgRef} src={imageUrl} alt="Map Diagram" style={imageStyle} />
+            <img
+                ref={imgRef}
+                src={imageUrl}
+                alt="Map Diagram"
+                className={imageClasses} // Use classes instead of style
+            />
 
-            {hotspots.map((hotspot) => {
-                // Determine if this hotspot is selected for deletion
-                const isSelectedForDeletion = isEditMode && editAction === 'selecting_for_deletion' && hotspot.id === hotspotToDeleteId;
-
-                return (
-                    <div // This is the main hotspot div
-                        key={hotspot.id}
-                        style={getHotspotStyle(hotspot)}
-                        onClick={(e) => {
-                            e.stopPropagation(); // Prevent container onClick from firing
-                            if (isEditMode && editAction === 'selecting_for_deletion') {
-                                // If in selection mode, call the selection handler
-                                onSelectHotspotForDeletion(hotspot.id);
-                            } else if (!isEditMode) {
-                                // Only trigger navigation click if NOT in edit mode
-                                onHotspotClick(hotspot.link_to_map_id);
-                            }
-                            // Clicks are ignored in 'adding' mode due to getHotspotStyle pointerEvents: 'none'
-                        }}
-                        title={
-                            isEditMode
-                                ? (editAction === 'selecting_for_deletion' ? `Select/Deselect Hotspot ID: ${hotspot.id}` : `Hotspot ID: ${hotspot.id}`)
-                                : `Go to map: ${hotspot.link_to_map_id}`
-                        }
-                    >
-                        {/* --- Render Delete Button Conditionally --- */}
-                        {isSelectedForDeletion && (
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation(); // Prevent hotspot onClick
-                                    // Add a confirmation dialog before deleting maybe?
-                                    // if (window.confirm(`Are you sure you want to delete hotspot ${hotspot.id}?`)) {
-                                    onConfirmDeletion(hotspot.id);
-                                    // }
-                                }}
-                                style={{
-                                    position: 'absolute',
-                                    top: '-8px', // Position slightly outside/overlapping top-right
-                                    right: '-8px',
-                                    background: 'red',
-                                    color: 'white',
-                                    border: '1px solid darkred',
-                                    borderRadius: '50%', // Circular button
-                                    width: '20px',
-                                    height: '20px',
-                                    fontSize: '12px',
-                                    lineHeight: '18px', // Adjust for vertical centering
-                                    textAlign: 'center',
-                                    cursor: 'pointer',
-                                    zIndex: 10, // Ensure button is clickable
-                                    boxShadow: '0 0 5px rgba(0,0,0,0.5)',
-                                }}
-                                title={`Delete hotspot ${hotspot.id}`}
-                            >
-                                X {/* Simple 'X' delete symbol */}
-                            </button>
-                        )}
-                        {/* Optional: Render hotspot ID */}
-                        {/* ... */}
-                    </div>
-                );
-            })}
+            {/* Render hotspots using the new subcomponent */}
+            {hotspots.map((hotspot) => (
+                <MapHotspotDisplay
+                    key={hotspot.id}
+                    hotspot={hotspot}
+                    isEditMode={isEditMode}
+                    editAction={editAction}
+                    isSelected={hotspot.id === hotspotToDeleteId} // Pass selection status
+                    onClick={handleHotspotInteraction} // Pass unified handler
+                    onDeleteClick={onConfirmDeletion} // Pass deletion handler
+                />
+            ))}
 
             {/* Render the rectangle being drawn */}
+            {/* Keeping this as a div for simplicity, as it's temporary and absolutely positioned */}
             {isDrawing && currentRect && (
                 <div
-                    style={{
-                        ...drawingRectStyle,
+                    className={drawingRectClasses} // Use Tailwind classes
+                    style={{ // Inline styles ONLY for dynamic position/size in pixels
                         left: `${currentRect.x}px`,
                         top: `${currentRect.y}px`,
                         width: `${currentRect.width}px`,
@@ -300,7 +209,8 @@ const MapImageViewer: React.FC<MapImageViewerProps> = ({
                     }}
                 />
             )}
-        </div>
+            {/* --- CHANGE THIS: Closing Container tag --- */}
+        </Container> // Changed from div
     );
 };
 
