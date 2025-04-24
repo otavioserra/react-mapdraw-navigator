@@ -1,7 +1,6 @@
 // src/App.tsx
 import React from 'react';
 import Mapdraw from './Mapdraw'; // Import the new component
-import './App.css'; // Make sure this imports Tailwind directives if not done in index.css/main.tsx
 
 function App() {
     // Define the root map ID - replace with your actual starting map ID from your JSON
