@@ -17,13 +17,21 @@ interface RelativeRect {
     width: number;
     height: number;
 }
-interface MapdrawProps { rootMapId: string; className?: string; initialDataJsonString?: string; }
+
+interface MapdrawProps {
+    rootMapId: string;
+    className?: string;
+    initialDataJsonString?: string;
+    onJsonFileSelected: (event: React.ChangeEvent<HTMLInputElement>) => void;
+}
+
 const generateUniqueIdPart = () => Date.now().toString(36) + Math.random().toString(36).substring(2, 5);
 
 const Mapdraw: React.FC<MapdrawProps> = ({
     rootMapId,
     className,
-    initialDataJsonString
+    initialDataJsonString,
+    onJsonFileSelected
 }) => {
     const {
         currentMapId,
@@ -224,9 +232,6 @@ const Mapdraw: React.FC<MapdrawProps> = ({
 
     // --- Styling ---
     const containerClasses = `mapdraw-container ${className || ''}`.trim(); // Removed 'relative' as it might not be needed here anymore
-    // Remove button styles that were moved
-    const inputLabelStyle: React.CSSProperties = { /* ... */ };
-    const inputStyle: React.CSSProperties = { /* ... */ };
 
     // --- Render Logic (Refactored) ---
     return (
@@ -240,6 +245,7 @@ const Mapdraw: React.FC<MapdrawProps> = ({
                 onExportJson={handleExportJson}
                 editAction={editAction}
                 setEditAction={setEditAction}
+                onJsonFileSelected={onJsonFileSelected}
             />
 
             {/* Display Error Messages using Container */}

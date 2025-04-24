@@ -13,11 +13,10 @@ interface AppControlsProps {
     onExportJson: () => void;
     editAction: EditAction; // Declare the current action state prop
     setEditAction: React.Dispatch<React.SetStateAction<EditAction>>; // Declare the setter function prop
-    // onInitiateAddHotspot?: () => void; // Placeholder for future prop
-    // onInitiateRemoveHotspot?: () => void; // Placeholder for future prop
+    onJsonFileSelected: (event: React.ChangeEvent<HTMLInputElement>) => void; // Handler for file selection
 }
 
-// --- Mini-component for NORMAL mode controls ---
+// Update props definition for NormalModeControls
 const NormalModeControls: React.FC<Pick<AppControlsProps, 'onExportJson' | 'onToggleEditMode'>> = ({
     onExportJson,
     onToggleEditMode,
@@ -75,7 +74,7 @@ const EditModeControls: React.FC<EditModeControlsProps> = ({
 );
 
 
-// --- Main AppControls Component ---
+// Update the main AppControls component
 const AppControls: React.FC<AppControlsProps> = ({
     onBack,
     canGoBack,
@@ -84,22 +83,35 @@ const AppControls: React.FC<AppControlsProps> = ({
     onExportJson,
     editAction,
     setEditAction,
+    onJsonFileSelected,
 }) => {
-    // Determine if the back button should be enabled
     const isBackEnabled = canGoBack && !isEditMode;
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+    // Modified handleImportClick to trigger the hidden input
+    const handleImportClick = () => {
+        fileInputRef.current?.click();
+    };
 
     return (
-        // Use Container variant for the main control bar layout
         <Container variant="control-bar">
+            {/* Hidden File Input */}
+            <input
+                type="file"
+                ref={fileInputRef}
+                onChange={onJsonFileSelected} // Call handler from props when file changes
+                accept=".json" // Accept only JSON files
+                style={{ display: 'none' }} // Keep it hidden
+            />
 
-            {/* Back Button (using default container variant) */}
-            <Container variant="default"> {/* Or simply <Container> */}
+            {/* Left Side (Back Button) */}
+            <Container variant="default">
                 <Button variant="back" onClick={onBack} disabled={!isBackEnabled}>
                     Back
                 </Button>
             </Container>
 
-            {/* Right-side Controls (using control-group variant) */}
+            {/* Right Side Controls */}
             <Container variant="control-group">
                 {isEditMode
                     ? <EditModeControls
@@ -107,13 +119,17 @@ const AppControls: React.FC<AppControlsProps> = ({
                         setEditAction={setEditAction}
                         editAction={editAction}
                     />
-                    : <NormalModeControls
-                        onExportJson={onExportJson}
-                        onToggleEditMode={onToggleEditMode}
-                    />
+                    : <>
+                        <Button variant="default" onClick={handleImportClick}> {/* Button calls internal handler */}
+                            Import JSON
+                        </Button>
+                        <NormalModeControls
+                            onExportJson={onExportJson}
+                            onToggleEditMode={onToggleEditMode}
+                        />
+                    </>
                 }
             </Container>
-
         </Container>
     );
 };
