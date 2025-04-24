@@ -284,6 +284,10 @@ export const useMapNavigation = (
                     return prevMapData;
                 }
 
+                // Find the specific hotspot object *before* filtering the array
+                const hotspotToDelete = targetMapDef.hotspots.find(hs => hs.id === hotspotIdToDelete);
+                const linkedMapId = hotspotToDelete?.link_to_map_id; // Get the ID it potentially links to
+
                 const initialHotspotCount = targetMapDef.hotspots.length;
                 targetMapDef.hotspots = targetMapDef.hotspots.filter(
                     (hotspot: Hotspot) => hotspot.id !== hotspotIdToDelete
@@ -297,6 +301,35 @@ export const useMapNavigation = (
                 }
 
                 console.log(`Hotspot '${hotspotIdToDelete}' removido do mapa '${targetMapId}'.`);
+
+                // NEW: Orphaned Map Deletion Logic (Simplified)
+                if (linkedMapId && newMapData[linkedMapId]) { // Check if linked map exists
+                    let isLinkedElsewhere = false;
+                    // Iterate through ALL maps and ALL their hotspots in the *new* data state
+                    for (const mapId in newMapData) {
+                        // Check only if the map definition and hotspots array exist
+                        if (newMapData[mapId]?.hotspots) {
+                            for (const hs of newMapData[mapId].hotspots) {
+                                // Check if any *other* hotspot still links to the same map ID
+                                if (hs.link_to_map_id === linkedMapId) {
+                                    isLinkedElsewhere = true;
+                                    break; // Found a link, no need to check further in this map
+                                }
+                            }
+                        }
+                        if (isLinkedElsewhere) break; // Stop searching maps if found
+                    }
+
+                    // If no other hotspot links to it, delete the map definition
+                    if (!isLinkedElsewhere) {
+                        console.log(`Map '${linkedMapId}' is now orphaned. Deleting its definition.`);
+                        delete newMapData[linkedMapId]; // Delete the map entry
+                        // NOTE: This is the simplified version. It doesn't recursively check further orphans.
+                    } else {
+                        console.log(`Map '${linkedMapId}' is still linked from elsewhere. Not deleting.`);
+                    }
+                }
+
                 return newMapData; // Return updated data
             });
         },
