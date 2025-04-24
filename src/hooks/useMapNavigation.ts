@@ -1,66 +1,95 @@
 // src/hooks/useMapNavigation.ts
 import { useState, useEffect, useCallback } from 'react';
-// Import the static JSON data directly - this will be our fallback.
 import mapDataSource from '../data/map-data.json';
 
 // --- Type Definitions ---
+
+/** Defines the properties of a clickable area on a map. */
 export interface Hotspot {
+    /** Unique identifier for the hotspot. */
     id: string;
-    x: number; // Assuming these are percentages
+    /** X-coordinate of the top-left corner. */
+    x: number;
+    /** Y-coordinate of the top-left corner. */
     y: number;
+    /** Width of the hotspot area. */
     width: number;
+    /** Height of the hotspot area. */
     height: number;
-    link_to_map_id: string; // ID of the map this hotspot links to
+    /** ID of the map this hotspot links to. */
+    link_to_map_id: string;
 }
 
-// --- CORRECTED: Ensure imageUrl is part of the definition ---
+/** Defines the structure of a single map's data. */
 export interface MapDefinition {
-    imageUrl: string; // <<< CORRECTION APPLIED: The URL of the map image
-    hotspots: Hotspot[]; // Array of hotspots defined for this map
-}
-// --- End of Correction ---
-
-// Represents the entire collection of maps, keyed by their unique ID
-export type MapCollection = Record<string, MapDefinition>;
-
-// Data structure used for displaying the current map in the UI
-export interface MapDisplayData {
+    /** URL of the background image for the map. */
     imageUrl: string;
+    /** Array of hotspots present on this map. */
     hotspots: Hotspot[];
 }
 
-// Defines the structure of the object returned by the useMapNavigation hook
-interface UseMapNavigationReturn {
-    currentMapId: string | null; // The ID of the currently displayed map
-    currentMapDisplayData: MapDisplayData | null; // Data needed to render the current map
-    navigateToChild: (childMapId: string) => void; // Function to navigate to a linked map
-    navigateBack: () => void; // Function to navigate to the previous map in history
-    canGoBack: boolean; // Flag indicating if backward navigation is possible
-    error: string | null; // Stores any error message during navigation or data loading
-    // Function to add a new hotspot to a map AND define the new map it links to
-    addHotspotAndMapDefinition: (targetMapId: string, newHotspot: Hotspot, newMapImageUrl: string) => void;
-    managedMapData: MapCollection; // The current state of all map data (including additions)
+/** Represents the entire collection of maps, keyed by their unique ID. */
+export type MapCollection = Record<string, MapDefinition>;
+
+/** Data structure used for displaying the current map in the UI. */
+export interface MapDisplayData {
+    /** URL of the background image for the current map. */
+    imageUrl: string;
+    /** Array of hotspots for the current map. */
+    hotspots: Hotspot[];
 }
 
-// Cast the imported JSON to our defined type for type safety - This is the fallback data
+/** Possible actions while in edit mode */
+export type EditAction = 'none' | 'adding' | 'selecting_for_deletion';
+
+/** Defines the structure of the object returned by the useMapNavigation hook. */
+interface UseMapNavigationReturn {
+    /** The ID of the currently displayed map, or null if none is loaded. */
+    currentMapId: string | null;
+    /** Data needed to render the current map (image URL and hotspots), or null. */
+    currentMapDisplayData: MapDisplayData | null;
+    /** Function to navigate to a map linked by a hotspot. */
+    navigateToChild: (childMapId: string) => void;
+    /** Function to navigate to the previous map in the history stack. */
+    navigateBack: () => void;
+    /** Boolean flag indicating if backward navigation is possible (history is not empty). */
+    canGoBack: boolean;
+    /** Stores any error message encountered during operation, or null if no error. */
+    error: string | null;
+    /** Function to add a new hotspot to a target map and define the new map it links to. */
+    addHotspotAndMapDefinition: (targetMapId: string, newHotspot: Hotspot, newMapImageUrl: string) => void;
+    /** The current, managed state of all map data (including additions/deletions). */
+    managedMapData: MapCollection;
+    /** Function to delete a specific hotspot from a target map. */
+    deleteHotspot: (targetMapId: string, hotspotIdToDelete: string) => void;
+    editAction: EditAction; // The current action being performed in edit mode
+    setEditAction: React.Dispatch<React.SetStateAction<EditAction>>; // Function to change the edit action
+}
+
+/** Fallback map data loaded from the imported JSON file. */
 const originalMapData: MapCollection = mapDataSource as MapCollection;
 
-// The custom hook implementation
+/**
+ * Custom hook to manage navigation and state for an interactive map composed of linked images and hotspots.
+ * Handles loading initial data, navigation history, adding/deleting hotspots, and managing map definitions.
+ *
+ * @param initialMapId The ID of the map to display initially.
+ * @param initialDataJsonString Optional JSON string containing initial map data to override the default file data.
+ * @returns An object containing the current map state, navigation functions, modification functions, and error status.
+ */
 export const useMapNavigation = (
-    initialMapId: string, // The ID of the map to load initially
-    initialDataJsonString?: string // Optional: A JSON string containing initial map data
+    initialMapId: string,
+    initialDataJsonString?: string
 ): UseMapNavigationReturn => {
 
-    // --- Determine the initial map data source ---
-    let initialMapData: MapCollection = originalMapData; // Default to file data
-
+    // Determine the initial map data source (provided JSON string or fallback file)
+    let initialMapData: MapCollection = originalMapData;
     if (initialDataJsonString && initialDataJsonString.trim().length > 0) {
         console.log("Attempting to use provided initialDataJsonString...");
         try {
             const parsedData = JSON.parse(initialDataJsonString);
-            // Basic validation: check if it's a non-null object
             if (typeof parsedData === 'object' && parsedData !== null) {
-                initialMapData = parsedData as MapCollection; // Use parsed data
+                initialMapData = parsedData as MapCollection;
                 console.log("Successfully parsed and using inline JSON data.");
             } else {
                 console.warn("Provided initialDataJsonString parsed, but is not a valid object. Falling back to file data.");
@@ -69,171 +98,214 @@ export const useMapNavigation = (
             console.error("Failed to parse initialDataJsonString. Falling back to file data. Error:", error);
         }
     }
-    // --- End of data source determination ---
 
-    // --- State for Managed Map Data ---
-    // Initialize with a deep copy of the DETERMINED initial data to allow modification
+    /** State holding the complete, potentially modified, map data collection. */
     const [managedMapData, setManagedMapData] = useState<MapCollection>(() =>
-        JSON.parse(JSON.stringify(initialMapData))
+        JSON.parse(JSON.stringify(initialMapData)) // Initialize with a deep copy
     );
 
-    // --- State Variables ---
-    const [currentMapId, setCurrentMapId] = useState<string | null>(null); // ID of the map currently shown
-    const [currentMapDisplayData, setCurrentMapDisplayData] = useState<MapDisplayData | null>(null); // Data for the UI
-    const [navigationHistory, setNavigationHistory] = useState<string[]>([]); // Stack of visited map IDs
-    const [error, setError] = useState<string | null>(null); // Error message state
+    /** State for the ID of the map currently being displayed. */
+    const [currentMapId, setCurrentMapId] = useState<string | null>(null);
+    /** State for the data needed to render the current map in the UI. */
+    const [currentMapDisplayData, setCurrentMapDisplayData] = useState<MapDisplayData | null>(null);
+    /** State holding the stack of visited map IDs for back navigation. */
+    const [navigationHistory, setNavigationHistory] = useState<string[]>([]);
+    /** State for storing error messages. */
+    const [error, setError] = useState<string | null>(null);
+    /** State for the current edit action */
+    const [editAction, setEditAction] = useState<EditAction>('none');
 
-    // --- Helper Function to Get Map Data by ID (Handles Errors) ---
+    /**
+     * Retrieves the display data (imageUrl, hotspots) for a given map ID from the managed state.
+     * Sets an error if the map ID is not found.
+     * @param mapId The ID of the map to retrieve data for.
+     * @returns The MapDisplayData if found, otherwise null.
+     */
     const getMapDataById = useCallback((mapId: string | null): MapDisplayData | null => {
-        if (!mapId) return null; // Handle null/undefined ID early
-        const mapDef = managedMapData[mapId]; // Look up in the current state
+        if (!mapId) return null;
+        const mapDef = managedMapData[mapId];
         if (mapDef) {
-            // Map found, return display data (imageUrl now exists due to interface correction)
             return { imageUrl: mapDef.imageUrl, hotspots: mapDef.hotspots };
         }
-        // Map not found, set error state and return null
         const errorMsg = `Error loading map: Map data not found for ID: '${mapId}'`;
         console.error(errorMsg);
         setError(errorMsg);
         return null;
-    }, [managedMapData]); // Depends on the current map data state
+    }, [managedMapData]); // Recalculate only if managedMapData changes
 
-    // --- Effect for Initial Map Load ---
+    /** Effect to load the initial map when the hook mounts or initialMapId changes. */
     useEffect(() => {
-        setError(null); // Clear previous errors on initial load attempt
-        const dataForId = getMapDataById(initialMapId); // Try to get data for the initial ID
+        setError(null);
+        const dataForId = getMapDataById(initialMapId);
         if (dataForId) {
-            // Success: Set current map ID, display data, and reset history
             setCurrentMapId(initialMapId);
             setCurrentMapDisplayData(dataForId);
-            setNavigationHistory([]);
+            setNavigationHistory([]); // Reset history on initial load
         } else {
-            // Failure: getMapDataById already set the error. Reset state.
+            // Error is set within getMapDataById if not found
             setCurrentMapId(null);
             setCurrentMapDisplayData(null);
             setNavigationHistory([]);
         }
-    }, [initialMapId, getMapDataById]); // Rerun if initialMapId changes
+    }, [initialMapId]); // Rerun if initialMapId or the getter function changes
 
-    // --- Effect to Update Display Data if managedMapData Changes ---
-    // (e.g., after adding a hotspot/map)
+    /** Effect to update the display data if the underlying managedMapData changes while a map is displayed. */
     useEffect(() => {
         if (currentMapId) {
-            const currentData = managedMapData[currentMapId]; // Direct lookup in state
+            const currentData = managedMapData[currentMapId];
             if (currentData) {
-                // Update display data if current map still exists
+                // Ensure the currently displayed map data is up-to-date
                 setCurrentMapDisplayData({
-                    imageUrl: currentData.imageUrl, // imageUrl exists due to correction
+                    imageUrl: currentData.imageUrl,
                     hotspots: currentData.hotspots,
                 });
             } else {
-                // Handle inconsistency if currentMapId becomes invalid after load
+                // Handle cases where the current map might have been deleted externally
                 const errorMsg = `Inconsistency detected: Current map ID '${currentMapId}' no longer exists in data.`;
                 console.error(errorMsg);
                 setError(errorMsg);
-                // Optionally reset state here
+                // Consider resetting navigation state here if appropriate
             }
         }
-    }, [managedMapData, currentMapId]); // Depends on data state and current ID
+    }, [managedMapData, currentMapId]); // Rerun if map data or current map ID changes
 
-    // --- Navigation Functions ---
+    /**
+     * Navigates to a new map specified by its ID.
+     * Pushes the current map ID onto the history stack.
+     * @param childMapId The ID of the map to navigate to.
+     */
     const navigateToChild = useCallback((childMapId: string) => {
-        // Basic validation for ID format (optional)
+        // Basic validation to prevent navigating with invalid IDs (e.g., URLs)
         if (typeof childMapId !== 'string' || childMapId.includes('://') || childMapId.includes('/')) {
             const errorMsg = `Navigation failed: Invalid format for target map ID: '${childMapId}'. Expected a valid key.`;
             console.warn(errorMsg);
             setError(errorMsg);
             return;
         }
-        if (!currentMapId) return; // Safety check
+        if (!currentMapId) return; // Cannot navigate from a null state
 
-        const childDataExists = managedMapData[childMapId]; // Check if target exists
+        const childDataExists = managedMapData[childMapId];
         if (childDataExists) {
-            // Success: Clear error, update history, set new current ID
             setError(null);
             setNavigationHistory(prevHistory => [...prevHistory, currentMapId]);
-            setCurrentMapId(childMapId); // Display data updates via useEffect
+            setCurrentMapId(childMapId); // Display data updates via the useEffect hook
         } else {
-            // Failure: Set error, do not navigate
             const errorMsg = `Navigation failed: Target map ID '${childMapId}' not found in map data.`;
             console.warn(errorMsg);
             setError(errorMsg);
         }
-    }, [currentMapId, managedMapData]);
+    }, [currentMapId, managedMapData, setNavigationHistory, setCurrentMapId, setError]); // Dependencies needed for the logic
 
+    /** Navigates back to the previously visited map based on the navigation history. */
     const navigateBack = useCallback(() => {
-        if (navigationHistory.length === 0) return; // Cannot go back
+        if (navigationHistory.length === 0) return; // Cannot go back if history is empty
 
         const parentMapId = navigationHistory[navigationHistory.length - 1];
-        const parentDataExists = managedMapData[parentMapId]; // Check if parent still exists
+        const parentDataExists = managedMapData[parentMapId]; // Check if parent map still exists
 
         if (parentDataExists) {
-            // Success: Clear error, set parent ID as current, pop history
             setError(null);
             setCurrentMapId(parentMapId);
-            setNavigationHistory(prevHistory => prevHistory.slice(0, -1)); // Display data updates via useEffect
+            setNavigationHistory(prevHistory => prevHistory.slice(0, -1)); // Pop the last entry
         } else {
-            // Failure (History points to a non-existent map - defensive)
+            // Defensive check in case the map data changed and history points to a deleted map
             const errorMsg = `Error navigating back: Parent map ID '${parentMapId}' from history not found in current map data. History might be corrupted.`;
             console.error(errorMsg);
             setError(errorMsg);
-            // Optionally clear the bad history entry or reset further
+            // Optionally, clear the invalid history entry or take other recovery steps
         }
-    }, [navigationHistory, managedMapData]);
+    }, [navigationHistory, managedMapData, setNavigationHistory, setCurrentMapId, setError]); // Dependencies needed
 
-
-    // --- Function to Add Hotspot AND Define the New Map it Links To ---
+    /**
+     * Adds a new hotspot to a specified map and simultaneously defines the new map
+     * that this hotspot links to within the managed map data.
+     * @param targetMapId ID of the map where the hotspot will be added.
+     * @param newHotspot The hotspot object to add (contains its own ID and link_to_map_id).
+     * @param newMapImageUrl URL for the image of the *new* map being created/defined.
+     */
     const addHotspotAndMapDefinition = useCallback(
         (targetMapId: string, newHotspot: Hotspot, newMapImageUrl: string) => {
-            // targetMapId: ID of the map where the hotspot is being added (e.g., 'rootMap')
-            // newHotspot: The hotspot object itself (contains its own ID and link_to_map_id)
-            // newMapImageUrl: URL for the image of the NEW map being created
-
-            setError(null); // Clear previous errors on attempt
-
+            setError(null);
             setManagedMapData(prevMapData => {
-                // --- Perform a deep copy for immutability ---
-                // Consider structuredClone() for modern browsers or lodash.cloneDeep for broader support if performance is critical
-                const newMapData = JSON.parse(JSON.stringify(prevMapData));
-
-                // --- 1. Add the Hotspot to the target map's definition ---
+                const newMapData = JSON.parse(JSON.stringify(prevMapData)); // Deep copy
                 const targetMapDef = newMapData[targetMapId];
+
                 if (!targetMapDef) {
                     const errorMsg = `Cannot add hotspot: Target map definition not found for ID '${targetMapId}'`;
                     console.error(errorMsg);
                     setError(errorMsg);
                     return prevMapData; // Return original data on error
                 }
-                targetMapDef.hotspots.push(newHotspot); // Add the hotspot object
 
-                // --- 2. Add the New Map Definition ---
-                const newMapDefinitionId = newHotspot.link_to_map_id; // Get the ID for the new map from the hotspot link
+                // Add the hotspot to the target map
+                targetMapDef.hotspots.push(newHotspot);
 
-                // Defensive check (should have been validated in Mapdraw)
+                // Define the new map linked by the hotspot
+                const newMapDefinitionId = newHotspot.link_to_map_id;
                 if (newMapData[newMapDefinitionId]) {
-                    const errorMsg = `Consistency Error: Map ID '${newMapDefinitionId}' already exists before adding definition.`;
+                    // Prevent overwriting an existing map accidentally
+                    const errorMsg = `Consistency Error: Map ID '${newMapDefinitionId}' already exists. Cannot add new definition.`;
                     console.error(errorMsg);
                     setError(errorMsg);
-                    return newMapData; // Avoid overwriting existing map
+                    // Return data with only the hotspot added, but not the new map definition
+                    // Alternatively, return prevMapData to abort the whole operation. Let's return modified data.
+                    return newMapData;
                 }
 
-                // Create the new map definition entry using the new ID as the key
                 newMapData[newMapDefinitionId] = {
-                    imageUrl: newMapImageUrl, // Use the provided image URL
-                    hotspots: []             // Initialize with an empty hotspots array
+                    imageUrl: newMapImageUrl,
+                    hotspots: [] // New map starts with no hotspots
                 };
 
                 console.log(`Updated map data: Added hotspot to '${targetMapId}', Added map definition for '${newMapDefinitionId}'`);
-                return newMapData; // Return the fully updated map data structure
+                return newMapData; // Return the updated structure
             });
         },
-        [] // No dependencies needed if it only relies on arguments and setManagedMapData
+        [setManagedMapData, setError] // Dependencies: state setters
     );
 
+    /**
+     * Deletes a specific hotspot from a target map.
+     * @param targetMapId The ID of the map containing the hotspot.
+     * @param hotspotIdToDelete The ID of the hotspot to remove.
+     */
+    const deleteHotspot = useCallback(
+        (targetMapId: string, hotspotIdToDelete: string) => {
+            setError(null);
+            setManagedMapData(prevMapData => {
+                const newMapData = JSON.parse(JSON.stringify(prevMapData)); // Deep copy
+                const targetMapDef = newMapData[targetMapId];
 
-    const canGoBack = navigationHistory.length > 0; // Check if history is not empty
+                if (!targetMapDef) {
+                    const errorMsg = `Erro ao deletar hotspot: Mapa alvo não encontrado para ID '${targetMapId}'`;
+                    console.error(errorMsg);
+                    setError(errorMsg);
+                    return prevMapData;
+                }
 
-    // --- Return values of the hook ---
+                const initialHotspotCount = targetMapDef.hotspots.length;
+                targetMapDef.hotspots = targetMapDef.hotspots.filter(
+                    (hotspot: Hotspot) => hotspot.id !== hotspotIdToDelete
+                );
+
+                if (targetMapDef.hotspots.length === initialHotspotCount) {
+                    const errorMsg = `Aviso: Hotspot com ID '${hotspotIdToDelete}' não encontrado no mapa '${targetMapId}'. Nenhuma alteração feita.`;
+                    console.warn(errorMsg);
+                    // Not setting global error state for a warning/non-critical issue
+                    return prevMapData; // No change, return previous data
+                }
+
+                console.log(`Hotspot '${hotspotIdToDelete}' removido do mapa '${targetMapId}'.`);
+                return newMapData; // Return updated data
+            });
+        },
+        [setManagedMapData, setError] // Dependencies: state setters
+    );
+
+    /** Boolean flag derived from navigation history state. */
+    const canGoBack = navigationHistory.length > 0;
+
+    // Return the public API of the hook
     return {
         currentMapId,
         currentMapDisplayData,
@@ -241,7 +313,10 @@ export const useMapNavigation = (
         navigateBack,
         canGoBack,
         error,
-        addHotspotAndMapDefinition, // Return the combined function
-        managedMapData, // Return the current data state (for export, etc.)
+        addHotspotAndMapDefinition,
+        managedMapData, // Expose managed data for potential saving/exporting
+        deleteHotspot,
+        editAction,     // Expose the current edit action state
+        setEditAction,  // Expose the function to set the edit action
     };
 };

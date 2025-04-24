@@ -3,7 +3,7 @@ import React, { useCallback, useState, ChangeEvent, MouseEvent, FormEvent } from
 import Modal from 'react-modal';
 import MapImageViewer from './components/MapImageViewer';
 import AppControls from './components/AppControls';
-import { useMapNavigation, Hotspot, MapCollection } from './hooks/useMapNavigation';
+import { useMapNavigation, Hotspot, MapCollection, EditAction } from './hooks/useMapNavigation';
 
 interface RelativeRect {
     x: number;
@@ -28,6 +28,8 @@ const Mapdraw: React.FC<MapdrawProps> = ({
         error,
         addHotspotAndMapDefinition,
         managedMapData,
+        editAction,
+        setEditAction,
     } = useMapNavigation(rootMapId, initialDataJsonString);
 
     // --- Component State ---
@@ -39,15 +41,34 @@ const Mapdraw: React.FC<MapdrawProps> = ({
 
     // --- Event Handlers ---
     const handleHotspotClick = useCallback((mapId: string) => {
-        navigateToChild(mapId);
-    }, [navigateToChild]);
+        // Prevent navigation if in delete selection mode (or potentially other edit modes)
+        if (isEditMode && editAction === 'selecting_for_deletion') {
+            console.log("Hotspot click ignored for navigation during selection for deletion.");
+            // Selection logic will happen in MapImageViewer's own click handler
+            return;
+        }
+        // Prevent navigation if in adding mode (drawing)
+        if (isEditMode && editAction === 'adding') {
+            console.log("Hotspot click ignored for navigation during adding mode.");
+            return;
+        }
+        // Allow navigation if not in edit mode or if edit mode is 'none'
+        if (!isEditMode || editAction === 'none') {
+            navigateToChild(mapId);
+        }
+    }, [navigateToChild, isEditMode, editAction]); // Add isEditMode and editAction dependencies
     const handleHotspotDrawn = useCallback((rect: RelativeRect) => {
+        // Only trigger if the current action is 'adding'
+        if (editAction !== 'adding') {
+            console.warn("Hotspot drawn but editAction is not 'adding'. Ignoring.");
+            return; // Or provide user feedback
+        }
         setNewHotspotRect(rect);
-        const generatedMapId = `map_${generateUniqueIdPart()}`; // Generate ID
-        setPendingGeneratedMapId(generatedMapId); // Store generated ID
-        setNewMapUrlInput(''); // Clear URL input
+        const generatedMapId = `map_${generateUniqueIdPart()}`;
+        setPendingGeneratedMapId(generatedMapId);
+        setNewMapUrlInput('');
         setIsModalOpen(true);
-    }, []);
+    }, [editAction]); // Add editAction dependency
     const handleModalCancel = useCallback(() => {
         setIsModalOpen(false);
         setNewHotspotRect(null);
@@ -136,10 +157,20 @@ const Mapdraw: React.FC<MapdrawProps> = ({
     ]);
     // --- End of handleModalSubmit modification ---
 
-    // --- Keep toggleEditMode function ---
-    const toggleEditMode = () => {
-        setIsEditMode(prev => !prev);
-    };
+    // Replace the existing toggleEditMode function (around line 140) with this:
+    const toggleEditMode = useCallback(() => {
+        setIsEditMode(prevIsEditMode => {
+            const exitingEditMode = prevIsEditMode; // If it was true, we are now exiting
+            if (exitingEditMode) {
+                // Reset the edit action when exiting edit mode
+                setEditAction('none'); // Use the setter from the hook
+                console.log("Exiting edit mode, resetting editAction to 'none'");
+            } else {
+                console.log("Entering edit mode");
+            }
+            return !prevIsEditMode; // Toggle the local state
+        });
+    }, [setEditAction]); // Add setEditAction from the hook as a dependency
 
     // --- Keep handleExportJson function ---
     const handleExportJson = useCallback(() => {
@@ -173,6 +204,8 @@ const Mapdraw: React.FC<MapdrawProps> = ({
                 isEditMode={isEditMode} // Pass local state
                 onToggleEditMode={toggleEditMode} // Pass local state setter function
                 onExportJson={handleExportJson} // Pass local handler function
+                editAction={editAction}
+                setEditAction={setEditAction}
             />
 
             {/* Display Error Messages */}
@@ -187,6 +220,7 @@ const Mapdraw: React.FC<MapdrawProps> = ({
                     onHotspotClick={handleHotspotClick}
                     isEditMode={isEditMode}
                     onHotspotDrawn={handleHotspotDrawn}
+                    editAction={editAction}
                 />
             )}
 
@@ -253,7 +287,6 @@ const Mapdraw: React.FC<MapdrawProps> = ({
                     </div>
                 </form>
             </Modal>
-
         </div>
     );
 };

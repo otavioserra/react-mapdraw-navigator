@@ -1,6 +1,7 @@
+// src/components/MapImageViewer.tsx
 import React, { useState, useRef, MouseEvent } from 'react';
 // Assuming Hotspot type is defined in useMapNavigation and exported
-import { Hotspot, MapDisplayData } from '../hooks/useMapNavigation';
+import { Hotspot, MapDisplayData, EditAction } from '../hooks/useMapNavigation';
 
 // Define types for coordinates and rectangles used internally
 interface Coords {
@@ -22,6 +23,7 @@ interface MapImageViewerProps {
     onHotspotClick: (mapId: string) => void; // For navigation in view mode
     isEditMode: boolean; // To toggle between view and edit modes
     onHotspotDrawn: (rect: Rect) => void; // Callback when a new rect is drawn
+    editAction: EditAction;
 }
 
 const MapImageViewer: React.FC<MapImageViewerProps> = ({
