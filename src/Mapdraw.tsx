@@ -22,7 +22,6 @@ interface MapdrawProps {
     rootMapId: string;
     className?: string;
     initialDataJsonString?: string;
-    onJsonFileSelected: (event: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
 const generateUniqueIdPart = () => Date.now().toString(36) + Math.random().toString(36).substring(2, 5);
@@ -31,7 +30,6 @@ const Mapdraw: React.FC<MapdrawProps> = ({
     rootMapId,
     className,
     initialDataJsonString,
-    onJsonFileSelected
 }) => {
     const {
         currentMapId,
@@ -44,7 +42,8 @@ const Mapdraw: React.FC<MapdrawProps> = ({
         managedMapData,
         editAction,
         setEditAction,
-        deleteHotspot
+        deleteHotspot,
+        loadNewMapData
     } = useMapNavigation(rootMapId, initialDataJsonString);
 
     // --- Component State ---
@@ -230,6 +229,35 @@ const Mapdraw: React.FC<MapdrawProps> = ({
         } catch (err) { console.error("Export failed:", err); }
     }, [managedMapData]);
 
+    // --- File Import Handler (Now defined inside Mapdraw) ---
+    const handleFileSelected = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        const inputElement = event.target; // Keep ref to input element
+
+        if (!file) { return; }
+
+        console.log(`Mapdraw Instance: File selected: ${file.name}`);
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const text = e.target?.result;
+            if (typeof text === 'string') {
+                // Call the hook's function to load the new data
+                loadNewMapData(text);
+            } else {
+                console.error("FileReader result was not a string.");
+                alert(`Error: Could not read content from "${file.name}".`);
+            }
+            // Clear input value after processing
+            if (inputElement) inputElement.value = '';
+        };
+        reader.onerror = (e) => {
+            console.error("Failed to read file:", e);
+            alert(`Error: Could not read the selected file "${file.name}".`);
+            if (inputElement) inputElement.value = '';
+        };
+        reader.readAsText(file);
+    }, [loadNewMapData]); // Dependency on the hook's function
+
     // --- Styling ---
     const containerClasses = `mapdraw-container ${className || ''}`.trim(); // Removed 'relative' as it might not be needed here anymore
 
@@ -245,7 +273,7 @@ const Mapdraw: React.FC<MapdrawProps> = ({
                 onExportJson={handleExportJson}
                 editAction={editAction}
                 setEditAction={setEditAction}
-                onJsonFileSelected={onJsonFileSelected}
+                onJsonFileSelected={handleFileSelected}
             />
 
             {/* Display Error Messages using Container */}

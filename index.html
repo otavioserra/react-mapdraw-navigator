@@ -3,14 +3,93 @@
 
 <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" /> <!-- You can change this icon later -->
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>React Mapdraw Navigator</title> <!-- You can change this title -->
+    <title>React Mapdraw Navigator</title>
 </head>
 
 <body>
-    <div id="root"></div> <!-- This is where your React app will be mounted -->
-    <script type="module" src="/src/main.tsx"></script> <!-- This loads your main React entry point -->
+    <div class="react-mapdraw-navigator w-[500px] mb-5 border border-gray-300" data-mapdraw-root-id="rootMap">
+        {
+        "rootMap": {
+        "imageUrl": "/images/maps/root.png",
+        "hotspots": [
+        {
+        "id": "root_spot1",
+        "x": 13.5,
+        "y": 13,
+        "width": 25.7,
+        "height": 14,
+        "link_to_map_id": "childMapA"
+        },
+        {
+        "id": "root_spot2",
+        "x": 73.2,
+        "y": 48.5,
+        "width": 25.7,
+        "height": 13.5,
+        "link_to_map_id": "childMapB"
+        },
+        {
+        "id": "hs_rootMap_m9vq0c80gsf",
+        "x": 35.131048387096776,
+        "y": 35.26011560693642,
+        "width": 29.838709677419356,
+        "height": 40.7514450867052,
+        "link_to_map_id": "map_m9vq06ycw88"
+        }
+        ]
+        },
+        "childMapA": {
+        "imageUrl": "/images/maps/childA.png",
+        "hotspots": [
+        {
+        "id": "childA_spot1",
+        "x": 39,
+        "y": 31.5,
+        "width": 20,
+        "height": 25,
+        "link_to_map_id": "grandchildMapX"
+        }
+        ]
+        },
+        "childMapB": {
+        "imageUrl": "/images/maps/childB.svg",
+        "hotspots": []
+        },
+        "grandchildMapX": {
+        "imageUrl": "/images/maps/grandchildX.jpg",
+        "hotspots": []
+        },
+        "map_m9vq06ycw88": {
+        "imageUrl": "https://img.freepik.com/free-vector/flat-infographic-elements-collection_23-2148028312.jpg?w=740",
+        "hotspots": [
+        {
+        "id": "hs_map_m9vq06ycw88_m9vq19tsbu8",
+        "x": 58.17567567567568,
+        "y": 16.756756756756758,
+        "width": 40,
+        "height": 22.027027027027028,
+        "link_to_map_id": "map_m9vq11rmdyr"
+        }
+        ]
+        },
+        "map_m9vq11rmdyr": {
+        "imageUrl": "https://t4.ftcdn.net/jpg/01/82/74/17/360_F_182741748_kn2ueXKnaGqOAIr0bAge3E5IPO8ggIbH.jpg",
+        "hotspots": []
+        }
+        }
+    </div>
+
+    <div class="react-mapdraw-navigator w-[100%] border border-gray-300" data-mapdraw-root-id="start">
+        {
+        "start": { "imageUrl": "/images/maps/root.png", "hotspots": [] }
+        }
+    </div>
+
+    <div class="react-mapdraw-navigator w-[100%] border border-gray-300" data-mapdraw-root-id="start"></div>
+
+    <script type="module" src="/src/main.tsx"></script>
 </body>
 
 </html>

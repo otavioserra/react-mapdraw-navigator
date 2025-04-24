@@ -64,6 +64,7 @@ interface UseMapNavigationReturn {
     deleteHotspot: (targetMapId: string, hotspotIdToDelete: string) => void;
     editAction: EditAction; // The current action being performed in edit mode
     setEditAction: React.Dispatch<React.SetStateAction<EditAction>>; // Function to change the edit action
+    loadNewMapData: (jsonString: string) => void; // Function to load new data set
 }
 
 /** Fallback map data loaded from the imported JSON file. */
@@ -305,6 +306,43 @@ export const useMapNavigation = (
     /** Boolean flag derived from navigation history state. */
     const canGoBack = navigationHistory.length > 0;
 
+    // Re-add this entire function definition block
+    /**
+     * Loads a completely new map data structure from a JSON string,
+     * replacing the current state. Resets navigation.
+     * @param jsonString The JSON string containing the new MapCollection data.
+     */
+    const loadNewMapData = useCallback((jsonString: string) => {
+        console.log("Attempting to load new map data from provided string...");
+        try {
+            const parsedData = JSON.parse(jsonString);
+            if (typeof parsedData === 'object' && parsedData !== null && Object.keys(parsedData).length > 0) {
+                const newRootId = Object.keys(parsedData)[0];
+                if (!newRootId || !parsedData[newRootId]) {
+                    console.error("Failed to load new data: Could not determine a valid root map ID from the JSON.");
+                    setError("Failed to load new data: Invalid structure or missing root map.");
+                    return;
+                }
+                setManagedMapData(parsedData as MapCollection);
+                setCurrentMapId(newRootId);
+                setCurrentMapDisplayData({
+                    imageUrl: parsedData[newRootId].imageUrl,
+                    hotspots: parsedData[newRootId].hotspots
+                });
+                setNavigationHistory([]);
+                setError(null);
+                setEditAction('none');
+                console.log(`Successfully loaded new map data. Root set to: ${newRootId}`);
+            } else {
+                console.error("Failed to load new data: Parsed data is not a valid non-empty object.");
+                setError("Failed to load new data: Invalid JSON structure.");
+            }
+        } catch (err) {
+            console.error("Failed to parse JSON string for loading new map data:", err);
+            setError("Failed to load new data: Invalid JSON format.");
+        }
+    }, []);
+
     // Return the public API of the hook
     return {
         currentMapId,
@@ -318,5 +356,6 @@ export const useMapNavigation = (
         deleteHotspot,
         editAction,     // Expose the current edit action state
         setEditAction,  // Expose the function to set the edit action
+        loadNewMapData,
     };
 };

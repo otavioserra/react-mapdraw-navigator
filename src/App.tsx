@@ -1,106 +1,35 @@
-// src/App.tsx
-import React, { useState, useCallback, ChangeEvent } from 'react';
-import Mapdraw from './Mapdraw';
-import Container from './components/Container'; // Import Container
-import Heading from './components/Heading';   // Import Heading
-import Footer from './components/Footer';     // Import Footer
+// src/App.tsx (Simplified - No longer manages Mapdraw state/rendering directly)
+import React from 'react';
+// Import structural components if App still provides overall page layout
+import Container from './components/Container';
+import Heading from './components/Heading';
+import Footer from './components/Footer';
 
+// App component might now just provide overall page structure,
+// or could even be removed entirely if main.tsx handles everything.
 function App() {
-  // Default root map ID (used if no other data source provides one)
-  const DEFAULT_ROOT_MAP_ID = 'rootMap'; // Ensure this exists in map-data.json
 
-  // State for the *currently active* JSON data string (from file or embedded)
-  // undefined means use the default data file inside the hook
-  const [activeJsonDataString, setActiveJsonDataString] = useState<string | undefined>(undefined);
+  // No map-specific state or handlers needed here anymore,
+  // as main.tsx initializes Mapdraw instances directly.
 
-  // State for the root ID corresponding to the active data
-  // TODO: This might need logic to be read from imported/embedded JSON
-  const [activeRootMapId, setActiveRootMapId] = useState<string>(DEFAULT_ROOT_MAP_ID);
-
-  // State for the key to force Mapdraw remount when data source changes
-  const [mapKey, setMapKey] = useState<number>(Date.now());
-
-  // --- File Import Handler ---
-  const handleFileSelected = useCallback((event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    const inputElement = event.target; // Keep ref to input element
-
-    if (!file) {
-      return;
-    }
-
-    console.log(`File selected: ${file.name}`);
-    const reader = new FileReader();
-
-    reader.onload = (e) => {
-      const text = e.target?.result;
-      if (typeof text === 'string') {
-        try {
-          // Validate by parsing before setting state
-          JSON.parse(text); // Will throw error if invalid JSON
-          console.log("Successfully read and parsed JSON file.");
-
-          // Update state with the new JSON string
-          setActiveJsonDataString(text);
-
-          // TODO: Ideally, parse 'text' again here to find the root map ID
-          // within the loaded data structure if it's not always the same.
-          // For now, we just re-use the default or last known root ID,
-          // relying on the key change to force re-initialization.
-          // setActiveRootMapId(findRootIdInJson(text)); // Example placeholder
-
-          // CRITICAL: Change the key to force Mapdraw to remount and re-run the hook
-          setMapKey(Date.now());
-
-        } catch (err) {
-          console.error("Failed to parse JSON file:", err);
-          alert(`Error: Could not parse "${file.name}" as valid JSON.`);
-        } finally {
-          // Clear the file input value so the same file can be selected again
-          if (inputElement) {
-            inputElement.value = '';
-          }
-        }
-      } else {
-        console.error("FileReader result was not a string.");
-        alert(`Error: Could not read content from "${file.name}".`);
-        if (inputElement) {
-          inputElement.value = '';
-        }
-      }
-    };
-
-    reader.onerror = (e) => {
-      console.error("Failed to read file:", e);
-      alert(`Error: Could not read the selected file "${file.name}".`);
-      if (inputElement) {
-        inputElement.value = '';
-      }
-    };
-
-    reader.readAsText(file); // Read the file content
-  }, []); // Empty dependency array is okay here
+  console.log("App component rendered (might only provide page structure now).");
 
   return (
-    // Use Container for the main app layout
+    // Example: App provides the main page container and title/footer
     <Container className="App container mx-auto p-4">
-      {/* Use Heading component */}
       <Heading level={1} className="text-2xl font-bold text-center mb-4">
         Map Navigator Application
       </Heading>
 
-      {/* Render Mapdraw using state and key */}
-      <Mapdraw
-        key={mapKey} // Force re-render when data source changes
-        rootMapId={activeRootMapId}
-        initialDataJsonString={activeJsonDataString}
-        onJsonFileSelected={handleFileSelected} // Pass the handler down
-      // className prop if needed for Mapdraw itself
-      />
+      {/*
+             Mapdraw instances are now rendered directly by main.tsx
+             into elements with class="react-mapdraw-navigator".
+             We don't render <Mapdraw /> here anymore unless this App component
+             has a different purpose.
+            */}
 
-      {/* Use Footer component */}
       <Footer className="text-center text-sm text-gray-500 mt-6">
-        End of Mapdraw component area.
+        Application Footer (if needed)
       </Footer>
     </Container>
   );

@@ -87,10 +87,8 @@ const AppControls: React.FC<AppControlsProps> = ({
 }) => {
     const isBackEnabled = canGoBack && !isEditMode;
     const fileInputRef = React.useRef<HTMLInputElement>(null);
-
-    // Modified handleImportClick to trigger the hidden input
     const handleImportClick = () => {
-        fileInputRef.current?.click();
+        fileInputRef.current?.click(); // Dispara o input escondido
     };
 
     return (
