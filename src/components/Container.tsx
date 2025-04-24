@@ -2,39 +2,53 @@
 import React from 'react';
 
 // Define possible layout variants
-// Add more as needed for other parts of your application
-type ContainerVariant = 'default' | 'control-bar' | 'control-group';
+type ContainerVariant =
+    | 'default'
+    | 'control-bar'
+    | 'control-group'
+    | 'error-message'  // New
+    | 'info-message'   // New
+    | 'form-group'     // New
+    | 'modal-actions'; // New
 
 // Define the props for the Container component
 interface ContainerProps extends React.HTMLAttributes<HTMLDivElement> {
     children: React.ReactNode;
-    variant?: ContainerVariant; // Variant to determine layout classes
+    variant?: ContainerVariant;
     className?: string; // Allow *additional* classes for overrides or specifics
 }
 
 const Container: React.FC<ContainerProps> = ({
     children,
-    variant = 'default', // Default variant if none is provided
-    className = '', // For additional, specific classes
-    ...props // Pass down other standard div attributes (like style, id, etc.)
+    variant = 'default',
+    className = '',
+    ...props
 }) => {
-    let baseClasses = ""; // Base classes determined by variant
+    let baseClasses = "";
 
     // Assign base classes based on the variant
     switch (variant) {
         case 'control-bar':
-            // Layout for the main controls row: flex, space-between, items-center, padding, border etc.
             baseClasses = "flex justify-between items-center mb-4 p-2 border-b border-gray-300";
             break;
         case 'control-group':
-            // Layout for grouping buttons together: flex, items-center, gap
             baseClasses = "flex items-center gap-3";
+            break;
+        case 'error-message': // Styling for error boxes
+            baseClasses = "p-3 my-3 border border-red-500 text-red-700 bg-red-100 rounded";
+            break;
+        case 'info-message': // Styling for info/loading messages
+            baseClasses = "p-5 text-center text-gray-500";
+            break;
+        case 'form-group': // Standard margin below form groups
+            baseClasses = "mb-6"; // Adjusted from mb-4/mb-6 in original modal
+            break;
+        case 'modal-actions': // Layout for modal action buttons
+            baseClasses = "flex items-center justify-end space-x-3 mt-6";
             break;
         case 'default':
         default:
-            // Default container, maybe just a block or inline-block, no specific flex/padding
-            // If you often wrap single items, 'inline-block' might be useful, otherwise just empty
-            baseClasses = ""; // Or 'block', 'inline-block' if needed as a default wrapper style
+            baseClasses = ""; // No base classes for default
             break;
     }
 

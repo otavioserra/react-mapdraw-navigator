@@ -3,6 +3,12 @@ import React, { useCallback, useState, ChangeEvent, MouseEvent, FormEvent } from
 import Modal from 'react-modal';
 import MapImageViewer from './components/MapImageViewer';
 import AppControls from './components/AppControls';
+import Container from './components/Container';
+import Button from './components/Button';
+import Heading from './components/Heading';
+import Label from './components/Label';
+import Input from './components/Input';
+import Form from './components/Form';
 import { useMapNavigation, Hotspot, MapCollection, EditAction } from './hooks/useMapNavigation';
 
 interface RelativeRect {
@@ -23,21 +29,23 @@ const Mapdraw: React.FC<MapdrawProps> = ({
         currentMapId,
         currentMapDisplayData,
         navigateToChild,
-        navigateBack, // <<< Keep this function from the hook
-        canGoBack,    // <<< Keep this state from the hook
+        navigateBack,
+        canGoBack,
         error,
         addHotspotAndMapDefinition,
         managedMapData,
         editAction,
         setEditAction,
+        deleteHotspot
     } = useMapNavigation(rootMapId, initialDataJsonString);
 
     // --- Component State ---
-    const [isEditMode, setIsEditMode] = useState<boolean>(false); // <<< Keep this state
+    const [isEditMode, setIsEditMode] = useState<boolean>(false);
     const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
     const [newHotspotRect, setNewHotspotRect] = useState<RelativeRect | null>(null);
     const [newMapUrlInput, setNewMapUrlInput] = useState('');
     const [pendingGeneratedMapId, setPendingGeneratedMapId] = useState<string | null>(null);
+    const [hotspotToDeleteId, setHotspotToDeleteId] = useState<string | null>(null);
 
     // --- Event Handlers ---
     const handleHotspotClick = useCallback((mapId: string) => {
@@ -157,6 +165,31 @@ const Mapdraw: React.FC<MapdrawProps> = ({
     ]);
     // --- End of handleModalSubmit modification ---
 
+    // Handler for when a hotspot is clicked in 'selecting_for_deletion' mode
+    const handleSelectHotspotForDeletion = useCallback((hotspotId: string) => {
+        setHotspotToDeleteId(prevId => (prevId === hotspotId ? null : hotspotId)); // Select or toggle deselect
+        console.log("Selected hotspot ID for deletion:", hotspotId);
+    }, []);
+
+    // Handler to clear the selection (e.g., clicking background)
+    const handleClearDeletionSelection = useCallback(() => {
+        setHotspotToDeleteId(null);
+        console.log("Cleared hotspot deletion selection.");
+    }, []);
+
+    // Handler to actually delete the selected hotspot
+    // This will be called by the delete button rendered in MapImageViewer
+    const handleConfirmDeletion = useCallback((hotspotIdToDelete: string) => {
+        if (!currentMapId) {
+            console.error("Cannot delete hotspot: currentMapId is not set.");
+            return;
+        }
+        console.log(`Attempting to delete hotspot ${hotspotIdToDelete} from map ${currentMapId}`);
+        deleteHotspot(currentMapId, hotspotIdToDelete);
+        setHotspotToDeleteId(null); // Clear selection after deletion
+        // Optional: setEditAction('none') or stay in selection mode? Let's stay.
+    }, [currentMapId, deleteHotspot]); // Include deleteHotspot from the hook
+
     // Replace the existing toggleEditMode function (around line 140) with this:
     const toggleEditMode = useCallback(() => {
         setIsEditMode(prevIsEditMode => {
@@ -195,21 +228,22 @@ const Mapdraw: React.FC<MapdrawProps> = ({
     const inputLabelStyle: React.CSSProperties = { /* ... */ };
     const inputStyle: React.CSSProperties = { /* ... */ };
 
-    // --- Render Logic ---
+    // --- Render Logic (Refactored) ---
     return (
-        <div className={containerClasses}>
+        // Use Container for the main wrapper - pass computed className
+        <Container className={containerClasses}>
             <AppControls
-                onBack={navigateBack} // Pass hook function
-                canGoBack={canGoBack} // Pass hook state
-                isEditMode={isEditMode} // Pass local state
-                onToggleEditMode={toggleEditMode} // Pass local state setter function
-                onExportJson={handleExportJson} // Pass local handler function
+                onBack={navigateBack}
+                canGoBack={canGoBack}
+                isEditMode={isEditMode}
+                onToggleEditMode={toggleEditMode}
+                onExportJson={handleExportJson}
                 editAction={editAction}
                 setEditAction={setEditAction}
             />
 
-            {/* Display Error Messages */}
-            {error && <div className="p-3 my-3 border border-red-500 text-red-700 bg-red-100 rounded">Error: {error}</div>}
+            {/* Display Error Messages using Container */}
+            {error && <Container variant="error-message">Error: {error}</Container>}
 
             {/* Display Map Viewer */}
             {currentMapDisplayData && !error && (
@@ -221,45 +255,54 @@ const Mapdraw: React.FC<MapdrawProps> = ({
                     isEditMode={isEditMode}
                     onHotspotDrawn={handleHotspotDrawn}
                     editAction={editAction}
+                    currentMapId={currentMapId}
+                    hotspotToDeleteId={hotspotToDeleteId}
+                    onSelectHotspotForDeletion={handleSelectHotspotForDeletion}
+                    onClearSelection={handleClearDeletionSelection}
+                    onConfirmDeletion={handleConfirmDeletion}
                 />
             )}
 
-            {/* Display message if map data not available */}
+            {/* Display message if map data not available using Container */}
             {!currentMapDisplayData && !error && (
-                <div className="p-5 text-center text-gray-500">
+                <Container variant="info-message">
                     Map data is not available...
-                </div>
+                </Container>
             )}
 
-
+            {/* Modal using react-modal */}
             <Modal
                 isOpen={isModalOpen}
                 onRequestClose={handleModalCancel}
-                contentLabel="Add New Hotspot" // Accessibility label
-
-                // --- Use Tailwind via className props INSTEAD of inline 'style' prop ---
-                // Adjust classes as needed for your desired appearance
-                className="m-auto bg-white p-6 rounded-lg shadow-xl max-w-md w-11/12 outline-none" // Styles the modal content box
-                overlayClassName="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50" // Styles the background overlay
+                contentLabel="Add New Hotspot Details" // Updated label
+                className="m-auto bg-white p-6 rounded-lg shadow-xl max-w-md w-11/12 outline-none"
+                overlayClassName="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50"
             >
-                <h2 className="text-xl font-semibold mb-5 text-gray-800">Add New Hotspot</h2>
-                <form onSubmit={handleModalSubmit}>
+                {/* Use Heading component */}
+                <Heading level={2} className="text-xl font-semibold mb-5 text-gray-800">
+                    Add New Hotspot Details
+                </Heading>
+                <Form onSubmit={handleModalSubmit}>
                     {pendingGeneratedMapId && (
-                        <div className="mb-4">
+                        // Use Container for consistent form grouping (optional)
+                        <Container variant="default" className="mb-4">
                             <p className="text-sm text-gray-600">
                                 Generated Map ID:
                                 <strong className="ml-2 font-mono select-all bg-gray-100 px-1 py-0.5 rounded">
                                     {pendingGeneratedMapId}
                                 </strong>
                             </p>
-                        </div>
+                        </Container>
                     )}
 
-                    <div className="mb-6">
-                        <label htmlFor="mapUrl" className="block text-gray-700 text-sm font-medium mb-2">
+                    {/* Use Container for form group */}
+                    <Container variant="form-group">
+                        {/* Use Label component */}
+                        <Label htmlFor="mapUrl" className="block text-gray-700 text-sm font-medium mb-2">
                             New Map Image URL:
-                        </label>
-                        <input
+                        </Label>
+                        {/* Use Input component */}
+                        <Input
                             type="text"
                             id="mapUrl"
                             value={newMapUrlInput}
@@ -269,25 +312,31 @@ const Mapdraw: React.FC<MapdrawProps> = ({
                             required
                             autoFocus
                         />
-                    </div>
-                    <div className="flex items-center justify-end space-x-3 mt-6">
-                        <button
+                    </Container>
+
+                    {/* Use Container for modal actions */}
+                    <Container variant="modal-actions">
+                        {/* Use Button component for modal actions */}
+                        <Button
                             type="button"
+                            variant="default" // Or a specific 'cancel' variant if you add one
                             onClick={handleModalCancel}
-                            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                        // Add base classes if needed, or handle in Button component variants
+                        // className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
                         >
                             Cancel
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             type="submit"
-                            className="px-4 py-2 bg-indigo-600 text-white rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                            variant="primary" // Use primary variant
+                        // className="px-4 py-2 bg-indigo-600 text-white rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                         >
                             Add Hotspot
-                        </button>
-                    </div>
-                </form>
+                        </Button>
+                    </Container>
+                </Form>
             </Modal>
-        </div>
+        </Container> // Close the outermost Container
     );
 };
 

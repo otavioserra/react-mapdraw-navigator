@@ -24,6 +24,11 @@ interface MapImageViewerProps {
     isEditMode: boolean; // To toggle between view and edit modes
     onHotspotDrawn: (rect: Rect) => void; // Callback when a new rect is drawn
     editAction: EditAction;
+    currentMapId: string | null; // Needed if delete action happens here
+    hotspotToDeleteId: string | null; // ID of hotspot selected for deletion
+    onSelectHotspotForDeletion: (hotspotId: string) => void; // Callback when hotspot selected
+    onClearSelection: () => void; // Callback to clear selection
+    onConfirmDeletion: (hotspotId: string) => void; // Callback to confirm delete
 }
 
 const MapImageViewer: React.FC<MapImageViewerProps> = ({
@@ -32,6 +37,12 @@ const MapImageViewer: React.FC<MapImageViewerProps> = ({
     onHotspotClick,
     isEditMode,
     onHotspotDrawn,
+    editAction,
+    currentMapId,
+    hotspotToDeleteId,
+    onSelectHotspotForDeletion,
+    onClearSelection,
+    onConfirmDeletion,
 }) => {
     // State for drawing logic
     const [isDrawing, setIsDrawing] = useState<boolean>(false);
@@ -135,21 +146,48 @@ const MapImageViewer: React.FC<MapImageViewerProps> = ({
             width: `${hotspot.width}%`,
             height: `${hotspot.height}%`,
             boxSizing: 'border-box',
-            transition: 'background-color 0.2s ease, border 0.2s ease',
-            zIndex: 1, // Ensure hotspots are below the drawing rectangle
+            transition: 'background-color 0.2s ease, border 0.2s ease, box-shadow 0.2s ease', // Added box-shadow transition
+            zIndex: 1,
         };
 
+        // Determine if this hotspot is selected for deletion
+        const isSelectedForDeletion = isEditMode && editAction === 'selecting_for_deletion' && hotspot.id === hotspotToDeleteId;
+
         if (isEditMode) {
-            // Style for Edit Mode (visible but distinct)
-            return {
-                ...baseStyle,
-                cursor: 'default', // No pointer cursor
-                backgroundColor: 'rgba(255, 165, 0, 0.2)', // Orange tint
-                border: '1px dashed orange',
-                pointerEvents: 'none', // Let clicks pass through to container for drawing
-            };
+            if (editAction === 'selecting_for_deletion') {
+                // Specific styles for selection mode
+                return {
+                    ...baseStyle,
+                    cursor: 'pointer', // Make it clickable for selection
+                    backgroundColor: isSelectedForDeletion
+                        ? 'rgba(255, 0, 0, 0.4)' // Stronger red background if selected
+                        : 'rgba(255, 0, 0, 0.1)', // Light red tint if selectable
+                    border: isSelectedForDeletion
+                        ? '2px solid red' // Solid red border if selected
+                        : '1px dashed rgba(255, 0, 0, 0.7)', // Dashed red border if selectable
+                    pointerEvents: 'auto', // Make it clickable
+                    boxShadow: isSelectedForDeletion ? '0 0 8px 2px rgba(255, 0, 0, 0.7)' : 'none', // Glow effect when selected
+                };
+            } else if (editAction === 'adding') {
+                // Style while adding (visible but non-interactive)
+                return {
+                    ...baseStyle,
+                    cursor: 'crosshair', // Match container cursor maybe? Or default.
+                    backgroundColor: 'rgba(255, 165, 0, 0.1)', // Orange tint
+                    border: '1px dashed orange',
+                    pointerEvents: 'none', // Clicks pass through for drawing
+                };
+            } else { // isEditMode but action is 'none'
+                return { // Similar to adding mode, maybe less prominent
+                    ...baseStyle,
+                    cursor: 'default',
+                    backgroundColor: 'rgba(200, 200, 200, 0.1)',
+                    border: '1px dashed #aaa',
+                    pointerEvents: 'none',
+                };
+            }
         } else {
-            // Style for View Mode (clickable)
+            // Style for View Mode (clickable for navigation)
             return {
                 ...baseStyle,
                 cursor: 'pointer',
@@ -177,29 +215,78 @@ const MapImageViewer: React.FC<MapImageViewerProps> = ({
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp} // Stop drawing if mouse leaves container
+            onClick={(e) => {
+                // Only clear if clicking directly on the container (not a hotspot)
+                // and in selection mode
+                if (editAction === 'selecting_for_deletion' && e.target === containerRef.current) {
+                    onClearSelection();
+                }
+            }}
         >
             <img ref={imgRef} src={imageUrl} alt="Map Diagram" style={imageStyle} />
 
-            {/* Render existing hotspots - ALWAYS RENDERED NOW */}
-            {hotspots.map((hotspot) => (
-                <div
-                    key={hotspot.id}
-                    style={getHotspotStyle(hotspot)}
-                    onClick={(e) => {
-                        // Only trigger navigation click if NOT in edit mode
-                        if (!isEditMode) {
-                            e.stopPropagation(); // Prevent event bubbling
-                            onHotspotClick(hotspot.link_to_map_id);
+            {hotspots.map((hotspot) => {
+                // Determine if this hotspot is selected for deletion
+                const isSelectedForDeletion = isEditMode && editAction === 'selecting_for_deletion' && hotspot.id === hotspotToDeleteId;
+
+                return (
+                    <div // This is the main hotspot div
+                        key={hotspot.id}
+                        style={getHotspotStyle(hotspot)}
+                        onClick={(e) => {
+                            e.stopPropagation(); // Prevent container onClick from firing
+                            if (isEditMode && editAction === 'selecting_for_deletion') {
+                                // If in selection mode, call the selection handler
+                                onSelectHotspotForDeletion(hotspot.id);
+                            } else if (!isEditMode) {
+                                // Only trigger navigation click if NOT in edit mode
+                                onHotspotClick(hotspot.link_to_map_id);
+                            }
+                            // Clicks are ignored in 'adding' mode due to getHotspotStyle pointerEvents: 'none'
+                        }}
+                        title={
+                            isEditMode
+                                ? (editAction === 'selecting_for_deletion' ? `Select/Deselect Hotspot ID: ${hotspot.id}` : `Hotspot ID: ${hotspot.id}`)
+                                : `Go to map: ${hotspot.link_to_map_id}`
                         }
-                        // In edit mode, the click does nothing on the hotspot itself
-                        // because pointerEvents is 'none'
-                    }}
-                    title={isEditMode ? `Hotspot ID: ${hotspot.id}` : `Go to map: ${hotspot.link_to_map_id}`}
-                >
-                    {/* Optional: Render hotspot ID, maybe only in edit mode */}
-                    {/* {isEditMode && <span style={{ fontSize: '9px', background: 'rgba(255,255,255,0.7)', padding: '1px 2px', position:'absolute', top:0, left:0 }}>{hotspot.id}</span>} */}
-                </div>
-            ))}
+                    >
+                        {/* --- Render Delete Button Conditionally --- */}
+                        {isSelectedForDeletion && (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation(); // Prevent hotspot onClick
+                                    // Add a confirmation dialog before deleting maybe?
+                                    // if (window.confirm(`Are you sure you want to delete hotspot ${hotspot.id}?`)) {
+                                    onConfirmDeletion(hotspot.id);
+                                    // }
+                                }}
+                                style={{
+                                    position: 'absolute',
+                                    top: '-8px', // Position slightly outside/overlapping top-right
+                                    right: '-8px',
+                                    background: 'red',
+                                    color: 'white',
+                                    border: '1px solid darkred',
+                                    borderRadius: '50%', // Circular button
+                                    width: '20px',
+                                    height: '20px',
+                                    fontSize: '12px',
+                                    lineHeight: '18px', // Adjust for vertical centering
+                                    textAlign: 'center',
+                                    cursor: 'pointer',
+                                    zIndex: 10, // Ensure button is clickable
+                                    boxShadow: '0 0 5px rgba(0,0,0,0.5)',
+                                }}
+                                title={`Delete hotspot ${hotspot.id}`}
+                            >
+                                X {/* Simple 'X' delete symbol */}
+                            </button>
+                        )}
+                        {/* Optional: Render hotspot ID */}
+                        {/* ... */}
+                    </div>
+                );
+            })}
 
             {/* Render the rectangle being drawn */}
             {isDrawing && currentRect && (
