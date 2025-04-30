@@ -1,7 +1,7 @@
 // src/Mapdraw.tsx
-import React, { useCallback, useState, ChangeEvent, MouseEvent, FormEvent } from 'react';
+import React, { useCallback, useState, ChangeEvent, FormEvent, useRef, useEffect } from 'react';
 import Modal from 'react-modal';
-import MapImageViewer from './components/MapImageViewer';
+import MapImageViewer, { MapImageViewerRefHandle } from './components/MapImageViewer';
 import AppControls from './components/AppControls';
 import Container from './components/Container';
 import Button from './components/Button';
@@ -53,6 +53,7 @@ const Mapdraw: React.FC<MapdrawProps> = ({
     const [newMapUrlInput, setNewMapUrlInput] = useState('');
     const [pendingGeneratedMapId, setPendingGeneratedMapId] = useState<string | null>(null);
     const [hotspotToDeleteId, setHotspotToDeleteId] = useState<string | null>(null);
+    const mapViewerRef = useRef<MapImageViewerRefHandle>(null);
 
     // --- Event Handlers ---
     const handleHotspotClick = useCallback((mapId: string) => {
@@ -247,6 +248,18 @@ const Mapdraw: React.FC<MapdrawProps> = ({
         reader.readAsText(file);
     }, [loadNewMapData]); // Dependency on the hook's function
 
+    const handleZoomIn = useCallback(() => {
+        mapViewerRef.current?.doZoomIn();
+    }, []);
+
+    const handleZoomOut = useCallback(() => {
+        mapViewerRef.current?.doZoomOut();
+    }, []);
+
+    const handleResetTransform = useCallback(() => {
+        mapViewerRef.current?.doResetTransform();
+    }, []);
+
     // --- Styling ---
     const containerClasses = `mapdraw-container ${className || ''}`.trim(); // Removed 'relative' as it might not be needed here anymore
 
@@ -263,6 +276,9 @@ const Mapdraw: React.FC<MapdrawProps> = ({
                 editAction={editAction}
                 setEditAction={setEditAction}
                 onJsonFileSelected={handleFileSelected}
+                onZoomIn={handleZoomIn}
+                onZoomOut={handleZoomOut}
+                onResetTransform={handleResetTransform}
             />
 
             {/* Display Error Messages using Container */}
@@ -271,6 +287,7 @@ const Mapdraw: React.FC<MapdrawProps> = ({
             {/* Display Map Viewer */}
             {currentMapDisplayData && !error && (
                 <MapImageViewer
+                    ref={mapViewerRef}
                     imageUrl={currentMapDisplayData.imageUrl}
                     hotspots={currentMapDisplayData.hotspots}
                     onHotspotClick={handleHotspotClick}

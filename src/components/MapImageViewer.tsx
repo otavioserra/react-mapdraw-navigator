@@ -1,12 +1,18 @@
 // src/components/MapImageViewer.tsx
-import React, { useState, useRef, MouseEvent, useCallback, useEffect } from 'react';
+import React, { useState, useRef, MouseEvent, useCallback, useEffect, forwardRef, useImperativeHandle } from 'react';
 import classNames from 'classnames';
 import { Hotspot, EditAction } from '../hooks/useMapNavigation';
 import MapHotspotDisplay from './MapHotspotDisplay';
 import Container from './Container';
-import Button from './Button';
 import LoadingIndicator from './LoadingIndicator';
 import { TransformWrapper, TransformComponent, ReactZoomPanPinchRef } from "react-zoom-pan-pinch";
+
+// Handle type definition
+export interface MapImageViewerRefHandle {
+    doZoomIn: (step?: number, animationTime?: number) => void;
+    doZoomOut: (step?: number, animationTime?: number) => void;
+    doResetTransform: (animationTime?: number) => void;
+}
 
 // Define types for coordinates and rectangles used internally
 interface Coords {
@@ -36,7 +42,7 @@ interface MapImageViewerProps {
     onConfirmDeletion: (hotspotId: string) => void;
 }
 
-const MapImageViewer: React.FC<MapImageViewerProps> = ({
+const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(({
     imageUrl,
     hotspots,
     onHotspotClick,
@@ -48,7 +54,7 @@ const MapImageViewer: React.FC<MapImageViewerProps> = ({
     onSelectHotspotForDeletion,
     onClearSelection,
     onConfirmDeletion,
-}) => {
+}, ref) => {
     // State for drawing logic
     const [isDrawing, setIsDrawing] = useState<boolean>(false);
     const [startCoords, setStartCoords] = useState<Coords | null>(null);
@@ -198,28 +204,32 @@ const MapImageViewer: React.FC<MapImageViewerProps> = ({
     }, []);
 
     useEffect(() => {
-        console.log("Map ID changed, scheduling transform reset. New mapId:", currentMapId);
         setImageOriginalDims(null);
         setIsImageLoading(true);
 
-        // Action: Wrap the setTransform call in setTimeout to defer execution slightly
         const timerId = setTimeout(() => {
             const wrapperRefCurrent = transformWrapperRef.current;
             if (wrapperRefCurrent?.setTransform) {
-                console.log(">>> setTimeout: Calling setTransform(0, 0, 1, 0)...");
                 wrapperRefCurrent.setTransform(0, 0, 1, 0); // x=0, y=0, scale=1, animationTime=0
-                console.log(">>> setTimeout: setTransform called.");
-            } else {
-                console.warn(">>> setTimeout: Could not call setTransform - ref or method missing.");
             }
-
             setIsImageLoading(false);
-        }, 250); // Delay of 0ms defers to next event loop tick
+        }, 250);
 
-        // Optional: Cleanup function for the timeout if component unmounts quickly
         return () => clearTimeout(timerId);
 
-    }, [currentMapId]); // Keep dependency as [currentMapId]
+    }, [currentMapId]);
+
+    useImperativeHandle(ref, () => ({
+        doZoomIn(step = 0.5, animationTime = 150) {
+            transformWrapperRef.current?.zoomIn(step, animationTime);
+        },
+        doZoomOut(step = 0.5, animationTime = 150) {
+            transformWrapperRef.current?.zoomOut(step, animationTime);
+        },
+        doResetTransform(animationTime = 150) {
+            transformWrapperRef.current?.resetTransform(animationTime);
+        }
+    }), []);
 
     // Dynamic Classes Calculation
     const containerClasses = classNames(
@@ -259,14 +269,8 @@ const MapImageViewer: React.FC<MapImageViewerProps> = ({
                 onTransformed={handleTransformed}
                 disabled={isEditMode && (editAction === 'adding' || editAction === 'selecting_for_deletion')}
             >
-                {({ zoomIn, zoomOut, resetTransform, instance }) => (
+                {() => (
                     <React.Fragment>
-                        <div className="absolute top-2 left-2 z-10 space-x-1">
-                            <Button onClick={() => zoomIn(0.5, 150)} variant="default" className="p-1">Zoom In</Button>
-                            <Button onClick={() => zoomOut(0.5, 150)} variant="default" className="p-1">Zoom Out</Button>
-                            <Button onClick={() => resetTransform(150)} variant="default" className="p-1">Reset</Button>
-                        </div>
-
                         <TransformComponent
                             wrapperStyle={{ width: "100%", height: "100%", position: 'relative' }}
                             contentStyle={{ width: "100%", height: "100%" }}
@@ -320,6 +324,6 @@ const MapImageViewer: React.FC<MapImageViewerProps> = ({
             }
         </Container>
     );
-};
+});
 
 export default MapImageViewer;

@@ -4,19 +4,20 @@ import Button from './Button';
 import Container from './Container';
 import { EditAction } from '../hooks/useMapNavigation';
 
-// Prop interface (remains the same structure)
 interface AppControlsProps {
     onBack: () => void;
     canGoBack: boolean;
     isEditMode: boolean;
     onToggleEditMode: () => void;
     onExportJson: () => void;
-    editAction: EditAction; // Declare the current action state prop
-    setEditAction: React.Dispatch<React.SetStateAction<EditAction>>; // Declare the setter function prop
-    onJsonFileSelected: (event: React.ChangeEvent<HTMLInputElement>) => void; // Handler for file selection
+    editAction: EditAction;
+    setEditAction: React.Dispatch<React.SetStateAction<EditAction>>;
+    onJsonFileSelected: (event: React.ChangeEvent<HTMLInputElement>) => void;
+    onZoomIn?: () => void;
+    onZoomOut?: () => void;
+    onResetTransform?: () => void;
 }
 
-// Update props definition for NormalModeControls
 const NormalModeControls: React.FC<Pick<AppControlsProps, 'onExportJson' | 'onToggleEditMode'>> = ({
     onExportJson,
     onToggleEditMode,
@@ -31,50 +32,42 @@ const NormalModeControls: React.FC<Pick<AppControlsProps, 'onExportJson' | 'onTo
     </>
 );
 
-// --- Define specific props needed by EditModeControls ---
+// Define specific props needed by EditModeControls
 interface EditModeControlsProps {
     onToggleEditMode: () => void;
-    setEditAction: React.Dispatch<React.SetStateAction<EditAction>>; // Prop for the setter
-    editAction: EditAction; // Prop for the current action (useful later)
-    // Add other props like onInitiateAddHotspot etc. in the future if needed
+    setEditAction: React.Dispatch<React.SetStateAction<EditAction>>;
+    editAction: EditAction;
 }
 
-// --- Mini-component for EDIT mode controls (Updated) ---
+// Mini-component for EDIT mode controls
 const EditModeControls: React.FC<EditModeControlsProps> = ({
     onToggleEditMode,
-    setEditAction, // Receive the setter function via props
-    editAction,    // Receive the current action via props
+    setEditAction,
+    editAction,
 }) => (
     <>
-        {/* Add Hotspot Button: Set action to 'adding' on click */}
         <Button
             variant="add"
-            // You could add conditional styling here later if needed:
-            // className={editAction === 'adding' ? 'ring-2 ring-green-500' : ''}
-            onClick={() => setEditAction('adding')} // Call the received setter
+            className={editAction === 'adding' ? 'ring-2 ring-green-500' : ''}
+            onClick={() => setEditAction('adding')}
         >
             Add Hotspot
         </Button>
 
-        {/* Remove Hotspot Button: Set action to 'selecting_for_deletion' on click */}
         <Button
             variant="remove"
-            // You could add conditional styling here later if needed:
-            // className={editAction === 'selecting_for_deletion' ? 'ring-2 ring-red-500' : ''}
-            onClick={() => setEditAction('selecting_for_deletion')} // Call the received setter
+            className={editAction === 'selecting_for_deletion' ? 'ring-2 ring-red-500' : ''}
+            onClick={() => setEditAction('selecting_for_deletion')}
         >
             Remove Hotspot
         </Button>
 
-        {/* Exit Edit Mode button remains the same */}
         <Button variant="toggle-on" onClick={onToggleEditMode}>
             Exit Edit Mode
         </Button>
     </>
 );
 
-
-// Update the main AppControls component
 const AppControls: React.FC<AppControlsProps> = ({
     onBack,
     canGoBack,
@@ -84,33 +77,37 @@ const AppControls: React.FC<AppControlsProps> = ({
     editAction,
     setEditAction,
     onJsonFileSelected,
+    onZoomIn,
+    onZoomOut,
+    onResetTransform,
 }) => {
     const isBackEnabled = canGoBack && !isEditMode;
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     const handleImportClick = () => {
-        fileInputRef.current?.click(); // Dispara o input escondido
+        fileInputRef.current?.click();
     };
 
     return (
         <Container variant="control-bar">
-            {/* Hidden File Input */}
             <input
                 type="file"
                 ref={fileInputRef}
-                onChange={onJsonFileSelected} // Call handler from props when file changes
-                accept=".json" // Accept only JSON files
-                style={{ display: 'none' }} // Keep it hidden
+                onChange={onJsonFileSelected}
+                accept=".json"
+                style={{ display: 'none' }}
             />
 
-            {/* Left Side (Back Button) */}
             <Container variant="default">
                 <Button variant="back" onClick={onBack} disabled={!isBackEnabled}>
                     Back
                 </Button>
             </Container>
 
-            {/* Right Side Controls */}
             <Container variant="control-group">
+                {onZoomIn && <Button onClick={onZoomIn} variant="default" className="p-1">Zoom In</Button>}
+                {onZoomOut && <Button onClick={onZoomOut} variant="default" className="p-1">Zoom Out</Button>}
+                {onResetTransform && <Button onClick={onResetTransform} variant="default" className="p-1">Reset</Button>}
+
                 {isEditMode
                     ? <EditModeControls
                         onToggleEditMode={onToggleEditMode}
@@ -118,7 +115,7 @@ const AppControls: React.FC<AppControlsProps> = ({
                         editAction={editAction}
                     />
                     : <>
-                        <Button variant="default" onClick={handleImportClick}> {/* Button calls internal handler */}
+                        <Button variant="default" onClick={handleImportClick}>
                             Import JSON
                         </Button>
                         <NormalModeControls
