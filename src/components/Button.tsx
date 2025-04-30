@@ -25,7 +25,7 @@ const Button: React.FC<ButtonProps> = ({
     // --- Style Logic Based on Variant (Tailwind Example) ---
     // Adapt this if using inline styles or CSS Modules
 
-    let baseClasses = "px-3 py-1 rounded border font-medium focus:outline-none focus:ring-2 focus:ring-opacity-50"; // Common base styles
+    let baseClasses = "px-3 py-1 rounded border font-medium text-xs shadow-sm focus:outline-none focus:ring-2 focus:ring-opacity-50"; // Common base styles
     let variantClasses = "";
 
     switch (variant) {
@@ -45,13 +45,13 @@ const Button: React.FC<ButtonProps> = ({
             variantClasses = "bg-red-100 hover:bg-red-200 border-red-300 text-red-800 focus:ring-red-500";
             break;
         case 'toggle-off': // Example: Edit mode inactive (green style for 'enter')
-            variantClasses = "bg-green-100 hover:bg-green-200 border-green-300 text-green-800 focus:ring-green-500";
+            variantClasses = "cursor-pointer bg-green-100 hover:bg-green-200 border-green-300 text-green-800 focus:ring-green-500";
             break;
         case 'export':
-            variantClasses = "bg-blue-100 hover:bg-blue-200 border-blue-300 text-blue-800 focus:ring-blue-500";
+            variantClasses = "cursor-pointer bg-blue-100 hover:bg-blue-200 border-blue-300 text-blue-800 focus:ring-blue-500";
             break;
         case 'back':
-            variantClasses = "bg-gray-200 hover:bg-gray-300 border-gray-300 text-gray-800 focus:ring-gray-500";
+            variantClasses = "cursor-pointer bg-gray-200 hover:bg-gray-300 border-gray-300 text-gray-800 focus:ring-gray-500";
             break;
         case 'disabled': // Specific style when disabled
             baseClasses += " cursor-not-allowed opacity-50";
@@ -59,7 +59,7 @@ const Button: React.FC<ButtonProps> = ({
             variantClasses = "bg-gray-200 border-gray-300 text-gray-400";
             break;
         default: // 'default' variant
-            variantClasses = "bg-white hover:bg-gray-100 border-gray-300 text-gray-800 focus:ring-gray-500";
+            variantClasses = "cursor-pointer bg-white hover:bg-gray-100 border-gray-300 text-gray-800 focus:ring-gray-500";
             break;
     }
 
@@ -67,7 +67,7 @@ const Button: React.FC<ButtonProps> = ({
     const currentVariant = disabled ? 'disabled' : variant;
     if (disabled) {
         // Recalculate classes for the disabled state
-        baseClasses = "px-3 py-1 rounded border font-medium cursor-not-allowed opacity-50";
+        baseClasses = "px-3 py-1 rounded border font-medium text-xs cursor-not-allowed opacity-50";
         variantClasses = "bg-gray-200 border-gray-300 text-gray-400"; // Default disabled style
     }
 

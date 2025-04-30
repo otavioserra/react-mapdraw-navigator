@@ -236,7 +236,7 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
         "relative block w-full h-full overflow-hidden",
         {
             'cursor-crosshair': isEditMode && editAction === 'adding',
-            'cursor-default': !isEditMode || (isEditMode && editAction !== 'adding'),
+            'cursor-move': !isEditMode,
         }
     );
 
