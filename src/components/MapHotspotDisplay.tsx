@@ -1,15 +1,16 @@
 // src/components/MapHotspotDisplay.tsx
 import React from 'react';
 import { Hotspot, EditAction } from '../hooks/useMapNavigation';
-import Button from './Button'; // Assuming Button component exists
+import Button from './Button';
+import Container from './Container';
 
 interface MapHotspotDisplayProps {
     hotspot: Hotspot;
     isEditMode: boolean;
     editAction: EditAction;
-    isSelected: boolean; // Is this the hotspot selected for deletion?
-    onClick: (id: string, link: string) => void; // Handles both navigation and selection clicks
-    onDeleteClick: (id: string) => void; // Handles delete button click
+    isSelected: boolean;
+    onClick: (id: string, link: string) => void;
+    onDeleteClick: (id: string) => void;
 }
 
 const MapHotspotDisplay: React.FC<MapHotspotDisplayProps> = ({
@@ -38,7 +39,7 @@ const MapHotspotDisplay: React.FC<MapHotspotDisplayProps> = ({
         }
     } else {
         // View Mode
-        modeClasses = `cursor-pointer border border-dashed border-black/40 bg-green-500/10 hover:bg-green-500/20 pointer-events-auto`;
+        modeClasses = `cursor-pointer border border-dashed border-black/40 bg-green-500/30 hover:bg-green-500/40 pointer-events-auto`;
     }
 
     const combinedClasses = `${baseClasses} ${modeClasses}`;
@@ -65,7 +66,7 @@ const MapHotspotDisplay: React.FC<MapHotspotDisplayProps> = ({
     };
 
     return (
-        <div
+        <Container
             key={hotspot.id}
             className={combinedClasses}
             style={positionStyle}
@@ -78,20 +79,20 @@ const MapHotspotDisplay: React.FC<MapHotspotDisplayProps> = ({
         >
             {/* Render Delete Button Conditionally */}
             {isSelected && editAction === 'selecting_for_deletion' && (
-                // Using standard button + Tailwind for simplicity here,
-                // but could use the reusable Button component if preferred
-                <button
+                <Button
+                    variant="no-variant"
                     onClick={handleDeleteClick}
-                    className="absolute -top-2 -right-2 w-5 h-5 bg-red-600 hover:bg-red-700 text-white border border-red-800 rounded-full text-xs font-bold flex items-center justify-center leading-none cursor-pointer z-10 shadow-md p-0 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-1"
+                    className="absolute -top-2 -right-2 w-3 h-6 bg-red-600 hover:bg-red-700 text-white border border-red-800 rounded-full text-xs font-bold flex items-center justify-center leading-none cursor-pointer z-3 transition-colors duration-200 shadow-md pb-1.5 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-1"
                     title={`Delete hotspot ${hotspot.id}`}
                     aria-label={`Delete hotspot ${hotspot.id}`}
                 >
                     X
-                </button>
+                </Button>
             )}
             {/* Optional: Render hotspot ID - Maybe only if !isSelected? */}
             {/* {isEditMode && <span className="absolute top-0 left-0 text-[9px] bg-white/70 px-0.5 py-0">{hotspot.id}</span>} */}
-        </div>
+            {/* {!isEditMode && <span className="absolute text-4xl font-bold top-0 left-0 text-[9px] bg-white/70 px-0.5 py-0.5">Click to Open!</span>} */}
+        </Container>
     );
 };
 

@@ -16,6 +16,7 @@ interface AppControlsProps {
     onZoomIn?: () => void;
     onZoomOut?: () => void;
     onResetTransform?: () => void;
+    isAdminEnabled?: boolean;
 }
 
 const NormalModeControls: React.FC<Pick<AppControlsProps, 'onExportJson' | 'onToggleEditMode'>> = ({
@@ -80,6 +81,7 @@ const AppControls: React.FC<AppControlsProps> = ({
     onZoomIn,
     onZoomOut,
     onResetTransform,
+    isAdminEnabled = false,
 }) => {
     const isBackEnabled = canGoBack && !isEditMode;
     const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -97,18 +99,19 @@ const AppControls: React.FC<AppControlsProps> = ({
                 style={{ display: 'none' }}
             />
 
-            <Container variant="default">
+            <Container variant="control-group">
                 <Button variant="back" onClick={onBack} disabled={!isBackEnabled}>
                     Back
                 </Button>
-            </Container>
-
-            <Container variant="control-group">
                 {onZoomIn && <Button onClick={onZoomIn} variant="default" className="p-1">Zoom In</Button>}
                 {onZoomOut && <Button onClick={onZoomOut} variant="default" className="p-1">Zoom Out</Button>}
                 {onResetTransform && <Button onClick={onResetTransform} variant="default" className="p-1">Reset</Button>}
+            </Container>
 
-                {isEditMode
+            <Container variant="control-group">
+
+
+                {isAdminEnabled && (isEditMode
                     ? <EditModeControls
                         onToggleEditMode={onToggleEditMode}
                         setEditAction={setEditAction}
@@ -123,7 +126,7 @@ const AppControls: React.FC<AppControlsProps> = ({
                             onToggleEditMode={onToggleEditMode}
                         />
                     </>
-                }
+                )}
             </Container>
         </Container>
     );

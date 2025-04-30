@@ -2,7 +2,7 @@
 import React from 'react';
 
 // Defines the style variants our button can have
-type ButtonVariant = 'default' | 'primary' | 'add' | 'remove' | 'toggle-on' | 'toggle-off' | 'export' | 'back' | 'disabled';
+type ButtonVariant = 'default' | 'primary' | 'add' | 'remove' | 'toggle-on' | 'toggle-off' | 'export' | 'back' | 'disabled' | 'no-variant';
 
 // Defines the props for the Button component
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -29,6 +29,9 @@ const Button: React.FC<ButtonProps> = ({
     let variantClasses = "";
 
     switch (variant) {
+        case 'no-variant':
+            variantClasses = "";
+            break;
         case 'primary':
             variantClasses = "bg-blue-500 hover:bg-blue-600 border-blue-600 text-white focus:ring-blue-500";
             break;

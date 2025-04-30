@@ -11,6 +11,11 @@ import Input from './components/Input';
 import Form from './components/Form';
 import { useMapNavigation, Hotspot, MapCollection, EditAction } from './hooks/useMapNavigation';
 
+// Define a simpler config type inline or separately
+interface MapdrawConfig {
+    isAdminEnabled?: boolean;
+}
+
 interface RelativeRect {
     x: number;
     y: number;
@@ -22,6 +27,7 @@ interface MapdrawProps {
     rootMapId: string;
     className?: string;
     initialDataJsonString?: string;
+    config?: MapdrawConfig;
 }
 
 const generateUniqueIdPart = () => Date.now().toString(36) + Math.random().toString(36).substring(2, 5);
@@ -30,6 +36,7 @@ const Mapdraw: React.FC<MapdrawProps> = ({
     rootMapId,
     className,
     initialDataJsonString,
+    config
 }) => {
     const {
         currentMapId,
@@ -54,6 +61,9 @@ const Mapdraw: React.FC<MapdrawProps> = ({
     const [pendingGeneratedMapId, setPendingGeneratedMapId] = useState<string | null>(null);
     const [hotspotToDeleteId, setHotspotToDeleteId] = useState<string | null>(null);
     const mapViewerRef = useRef<MapImageViewerRefHandle>(null);
+
+    // Configs
+    const isAdminEnabled = config?.isAdminEnabled ?? false;
 
     // --- Event Handlers ---
     const handleHotspotClick = useCallback((mapId: string) => {
@@ -279,6 +289,7 @@ const Mapdraw: React.FC<MapdrawProps> = ({
                 onZoomIn={handleZoomIn}
                 onZoomOut={handleZoomOut}
                 onResetTransform={handleResetTransform}
+                isAdminEnabled={isAdminEnabled}
             />
 
             {/* Display Error Messages using Container */}

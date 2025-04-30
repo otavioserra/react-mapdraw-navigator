@@ -77,6 +77,10 @@ if (mapContainers.length === 0) {
                 rootMapId = DEFAULT_ROOT_MAP_ID;   // Fallback
             }
 
+            const config = {
+                isAdminEnabled: containerElement.dataset.enableAdmin === 'true' // Reads the attribute, defaults to false if missing/not 'true'
+            };
+
             // --- Step 2: Clean container and Render React (happens ONCE per element) ---
             containerElement.textContent = ''; // Clear container content
             containerElement.classList.remove('hidden'); // Remove hidden class
@@ -86,6 +90,7 @@ if (mapContainers.length === 0) {
                     <Mapdraw
                         rootMapId={rootMapId}
                         initialDataJsonString={initialJsonDataString} // Will be undefined for default case
+                        config={config}
                     />
                 </React.StrictMode>
             );
