@@ -175,7 +175,6 @@ const MapImageViewer: React.FC<MapImageViewerProps> = ({
         } else {
             setImageOriginalDims(null);
         }
-        setIsImageLoading(false);
     };
 
     const handleHotspotInteraction = (hotspotId: string, linkToMapId: string) => {
@@ -198,11 +197,29 @@ const MapImageViewer: React.FC<MapImageViewerProps> = ({
         setCurrentPosY(state.positionY);
     }, []);
 
-    // Effect to reset stored dimensions when the image URL changes
     useEffect(() => {
+        console.log("Map ID changed, scheduling transform reset. New mapId:", currentMapId);
         setImageOriginalDims(null);
         setIsImageLoading(true);
-    }, [imageUrl]);
+
+        // Action: Wrap the setTransform call in setTimeout to defer execution slightly
+        const timerId = setTimeout(() => {
+            const wrapperRefCurrent = transformWrapperRef.current;
+            if (wrapperRefCurrent?.setTransform) {
+                console.log(">>> setTimeout: Calling setTransform(0, 0, 1, 0)...");
+                wrapperRefCurrent.setTransform(0, 0, 1, 0); // x=0, y=0, scale=1, animationTime=0
+                console.log(">>> setTimeout: setTransform called.");
+            } else {
+                console.warn(">>> setTimeout: Could not call setTransform - ref or method missing.");
+            }
+
+            setIsImageLoading(false);
+        }, 250); // Delay of 0ms defers to next event loop tick
+
+        // Optional: Cleanup function for the timeout if component unmounts quickly
+        return () => clearTimeout(timerId);
+
+    }, [currentMapId]); // Keep dependency as [currentMapId]
 
     // Dynamic Classes Calculation
     const containerClasses = classNames(
@@ -214,7 +231,7 @@ const MapImageViewer: React.FC<MapImageViewerProps> = ({
     );
 
     const imageClasses = classNames(
-        "relative block w-full h-full",
+        "relative block w-full h-full object-contain",
         {
             'pointer-events-none': isEditMode && editAction === 'adding'
         }
@@ -245,9 +262,9 @@ const MapImageViewer: React.FC<MapImageViewerProps> = ({
                 {({ zoomIn, zoomOut, resetTransform, instance }) => (
                     <React.Fragment>
                         <div className="absolute top-2 left-2 z-10 space-x-1">
-                            <Button onClick={() => zoomIn()} variant="default" className="p-1">Zoom In</Button>
-                            <Button onClick={() => zoomOut()} variant="default" className="p-1">Zoom Out</Button>
-                            <Button onClick={() => resetTransform()} variant="default" className="p-1">Reset</Button>
+                            <Button onClick={() => zoomIn(0.5, 150)} variant="default" className="p-1">Zoom In</Button>
+                            <Button onClick={() => zoomOut(0.5, 150)} variant="default" className="p-1">Zoom Out</Button>
+                            <Button onClick={() => resetTransform(150)} variant="default" className="p-1">Reset</Button>
                         </div>
 
                         <TransformComponent
