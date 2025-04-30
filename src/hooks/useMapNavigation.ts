@@ -86,14 +86,10 @@ export const useMapNavigation = (
     // Determine the initial map data source (provided JSON string or fallback file)
     let initialMapData: MapCollection = originalMapData;
     if (initialDataJsonString && initialDataJsonString.trim().length > 0) {
-        console.log("Attempting to use provided initialDataJsonString...");
         try {
             const parsedData = JSON.parse(initialDataJsonString);
             if (typeof parsedData === 'object' && parsedData !== null) {
                 initialMapData = parsedData as MapCollection;
-                console.log("Successfully parsed and using inline JSON data.");
-            } else {
-                console.warn("Provided initialDataJsonString parsed, but is not a valid object. Falling back to file data.");
             }
         } catch (error) {
             console.error("Failed to parse initialDataJsonString. Falling back to file data. Error:", error);
@@ -258,7 +254,6 @@ export const useMapNavigation = (
                     hotspots: [] // New map starts with no hotspots
                 };
 
-                console.log(`Updated map data: Added hotspot to '${targetMapId}', Added map definition for '${newMapDefinitionId}'`);
                 return newMapData; // Return the updated structure
             });
         },
@@ -300,8 +295,6 @@ export const useMapNavigation = (
                     return prevMapData; // No change, return previous data
                 }
 
-                console.log(`Hotspot '${hotspotIdToDelete}' removido do mapa '${targetMapId}'.`);
-
                 // NEW: Orphaned Map Deletion Logic (Simplified)
                 if (linkedMapId && newMapData[linkedMapId]) { // Check if linked map exists
                     let isLinkedElsewhere = false;
@@ -322,11 +315,8 @@ export const useMapNavigation = (
 
                     // If no other hotspot links to it, delete the map definition
                     if (!isLinkedElsewhere) {
-                        console.log(`Map '${linkedMapId}' is now orphaned. Deleting its definition.`);
                         delete newMapData[linkedMapId]; // Delete the map entry
                         // NOTE: This is the simplified version. It doesn't recursively check further orphans.
-                    } else {
-                        console.log(`Map '${linkedMapId}' is still linked from elsewhere. Not deleting.`);
                     }
                 }
 
@@ -346,7 +336,6 @@ export const useMapNavigation = (
      * @param jsonString The JSON string containing the new MapCollection data.
      */
     const loadNewMapData = useCallback((jsonString: string) => {
-        console.log("Attempting to load new map data from provided string...");
         try {
             const parsedData = JSON.parse(jsonString);
             if (typeof parsedData === 'object' && parsedData !== null && Object.keys(parsedData).length > 0) {
@@ -365,7 +354,6 @@ export const useMapNavigation = (
                 setNavigationHistory([]);
                 setError(null);
                 setEditAction('none');
-                console.log(`Successfully loaded new map data. Root set to: ${newRootId}`);
             } else {
                 console.error("Failed to load new data: Parsed data is not a valid non-empty object.");
                 setError("Failed to load new data: Invalid JSON structure.");

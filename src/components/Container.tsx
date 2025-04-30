@@ -33,7 +33,7 @@ const Container = forwardRef<HTMLDivElement, ContainerProps>(({
     // Assign base classes based on the variant (switch statement remains the same)
     switch (variant) {
         case 'control-bar':
-            baseClasses = "flex justify-between items-center mb-4 p-2 border-b border-gray-300";
+            baseClasses = "flex justify-between items-center p-2 border-b border-gray-300";
             break;
         case 'control-group':
             baseClasses = "flex items-center gap-3";

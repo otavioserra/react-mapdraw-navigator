@@ -1,9 +1,11 @@
 // src/components/MapImageViewer.tsx
-import React, { useState, useRef, MouseEvent } from 'react';
+import React, { useState, useRef, MouseEvent, useCallback, useEffect } from 'react';
 import classNames from 'classnames';
 import { Hotspot, EditAction } from '../hooks/useMapNavigation';
 import MapHotspotDisplay from './MapHotspotDisplay';
 import Container from './Container';
+import Button from './Button';
+import { TransformWrapper, TransformComponent, ReactZoomPanPinchRef } from "react-zoom-pan-pinch";
 
 // Define types for coordinates and rectangles used internally
 interface Coords {
@@ -21,16 +23,16 @@ interface Rect {
 // Define the props for the component
 interface MapImageViewerProps {
     imageUrl: string;
-    hotspots: Hotspot[]; // Existing hotspots for the current map
-    onHotspotClick: (mapId: string) => void; // For navigation in view mode
-    isEditMode: boolean; // To toggle between view and edit modes
-    onHotspotDrawn: (rect: Rect) => void; // Callback when a new rect is drawn
+    hotspots: Hotspot[];
+    onHotspotClick: (mapId: string) => void;
+    isEditMode: boolean;
+    onHotspotDrawn: (rect: Rect) => void;
     editAction: EditAction;
-    currentMapId: string | null; // Needed if delete action happens here
-    hotspotToDeleteId: string | null; // ID of hotspot selected for deletion
-    onSelectHotspotForDeletion: (hotspotId: string) => void; // Callback when hotspot selected
-    onClearSelection: () => void; // Callback to clear selection
-    onConfirmDeletion: (hotspotId: string) => void; // Callback to confirm delete
+    currentMapId: string | null;
+    hotspotToDeleteId: string | null;
+    onSelectHotspotForDeletion: (hotspotId: string) => void;
+    onClearSelection: () => void;
+    onConfirmDeletion: (hotspotId: string) => void;
 }
 
 const MapImageViewer: React.FC<MapImageViewerProps> = ({
@@ -49,26 +51,34 @@ const MapImageViewer: React.FC<MapImageViewerProps> = ({
     // State for drawing logic
     const [isDrawing, setIsDrawing] = useState<boolean>(false);
     const [startCoords, setStartCoords] = useState<Coords | null>(null);
+    const [currentScale, setCurrentScale] = useState(1);
     const [currentRect, setCurrentRect] = useState<Rect | null>(null);
+    const [imageOriginalDims, setImageOriginalDims] = useState<{ width: number; height: number } | null>(null);
+    const [currentPosX, setCurrentPosX] = useState(0);
+    const [currentPosY, setCurrentPosY] = useState(0);
 
     // Refs
     const containerRef = useRef<HTMLDivElement>(null);
     const imgRef = useRef<HTMLImageElement>(null);
+    const transformWrapperRef = useRef<ReactZoomPanPinchRef>(null);
 
-    // --- Helper Function to get Mouse Coordinates Relative to Container ---
+    // Helper Function to get Mouse Coordinates Relative to Container
     const getRelativeCoords = (event: MouseEvent<HTMLDivElement>): Coords | null => {
+
         if (!containerRef.current) return null;
         const rect = containerRef.current.getBoundingClientRect();
         const x = event.clientX - rect.left;
         const y = event.clientY - rect.top;
+
         return { x, y };
     };
 
-    // --- Mouse Event Handlers for Drawing ---
+    // Mouse Event Handlers for Drawing
     const handleMouseDown = (event: MouseEvent<HTMLDivElement>) => {
-        if (!isEditMode || event.target !== containerRef.current) return; // Only draw in edit mode AND directly on the container
+        if (!isEditMode || editAction !== 'adding') return;
 
         event.preventDefault();
+
         const coords = getRelativeCoords(event);
         if (!coords) return;
 
@@ -80,32 +90,67 @@ const MapImageViewer: React.FC<MapImageViewerProps> = ({
     const handleMouseMove = (event: MouseEvent<HTMLDivElement>) => {
         if (!isDrawing || !startCoords) return;
 
-        const currentCoords = getRelativeCoords(event);
-        if (!currentCoords || !containerRef.current) return;
+        const currentRelativeCoords = getRelativeCoords(event);
 
-        const x = Math.min(startCoords.x, currentCoords.x);
-        const y = Math.min(startCoords.y, currentCoords.y);
-        const width = Math.abs(startCoords.x - currentCoords.x);
-        const height = Math.abs(startCoords.y - currentCoords.y);
+        if (!currentRelativeCoords || !containerRef.current) return;
+
+        const startRelativeX = startCoords.x;
+        const startRelativeY = startCoords.y;
+        const currentRelativeX = currentRelativeCoords.x;
+        const currentRelativeY = currentRelativeCoords.y;
+
+        const x = Math.min(startRelativeX, currentRelativeX);
+        const y = Math.min(startRelativeY, currentRelativeY);
+        const width = Math.abs(startRelativeX - currentRelativeX);
+        const height = Math.abs(startRelativeY - currentRelativeY);
 
         setCurrentRect({ x, y, width, height });
     };
 
     const handleMouseUp = (event: MouseEvent<HTMLDivElement>) => {
-        if (!isDrawing || !startCoords || !currentRect) return;
+        if (!isDrawing || !startCoords || !currentRect) {
+            setIsDrawing(false);
+            setStartCoords(null);
+            setCurrentRect(null);
+            return;
+        }
 
         setIsDrawing(false);
 
-        // Calculate Final Rectangle Relative to Image Container (as percentages)
-        if (containerRef.current && currentRect.width > 1 && currentRect.height > 1) { // Require min size
-            const containerWidth = containerRef.current.offsetWidth;
-            const containerHeight = containerRef.current.offsetHeight;
+        if (containerRef.current && currentRect.width > 1 && currentRect.height > 1) {
 
-            const relativeRect: Rect = {
-                x: (currentRect.x / containerWidth) * 100,
-                y: (currentRect.y / containerHeight) * 100,
-                width: (currentRect.width / containerWidth) * 100,
-                height: (currentRect.height / containerHeight) * 100,
+            // Use transform state variables updated by onTransformed callback
+            const scale = currentScale;
+            const positionX = currentPosX;
+            const positionY = currentPosY;
+
+            // Use image dimensions from state updated by onLoad (Recommended) OR fallback to ref access (ensure imageOriginalDims state exists if using)
+            let imageNaturalWidth = imageOriginalDims?.width ?? imgRef.current?.naturalWidth;
+            let imageNaturalHeight = imageOriginalDims?.height ?? imgRef.current?.naturalHeight;
+
+            if (!imageNaturalWidth || !imageNaturalHeight || imageNaturalWidth === 0 || imageNaturalHeight === 0) {
+                console.error("Cannot calculate hotspot: Image dimensions not loaded or invalid.");
+                setStartCoords(null);
+                setCurrentRect(null);
+                return;
+            }
+
+            // Offset apply correction
+            imageNaturalWidth = imageNaturalWidth * (containerRef.current.offsetWidth / imageNaturalWidth);
+            imageNaturalHeight = imageNaturalHeight * (containerRef.current.offsetHeight / imageNaturalHeight);
+
+            // Convert container-relative pixel coordinates (currentRect)
+            const imageX = (currentRect.x - positionX) / scale;
+            const imageY = (currentRect.y - positionY) / scale;
+            const imageWidth = currentRect.width / scale;
+            const imageHeight = currentRect.height / scale;
+
+            // Calculate percentage relative to the image's natural dimensions
+            let relativeRect: Rect = {
+                x: (imageX / imageNaturalWidth) * 100,
+                y: (imageY / imageNaturalHeight) * 100,
+                width: (imageWidth / imageNaturalWidth) * 100,
+                height: (imageHeight / imageNaturalHeight) * 100,
             };
 
             // Clamp percentage values
@@ -114,103 +159,142 @@ const MapImageViewer: React.FC<MapImageViewerProps> = ({
             relativeRect.width = Math.max(0.1, Math.min(relativeRect.width, 100 - relativeRect.x));
             relativeRect.height = Math.max(0.1, Math.min(relativeRect.height, 100 - relativeRect.y));
 
-            onHotspotDrawn(relativeRect); // Trigger callback with relative coords
+            onHotspotDrawn(relativeRect);
         }
 
-        // Reset drawing state
         setStartCoords(null);
         setCurrentRect(null);
     };
 
-    // --- Add Dynamic Classes Calculation ---
+    const handleImageLoad = (event: React.SyntheticEvent<HTMLImageElement>) => {
+        const { naturalWidth, naturalHeight } = event.currentTarget;
+        if (naturalWidth > 0 && naturalHeight > 0) {
+            setImageOriginalDims({ width: naturalWidth, height: naturalHeight });
+        } else {
+            setImageOriginalDims(null);
+        }
+    };
+
+    const handleHotspotInteraction = (hotspotId: string, linkToMapId: string) => {
+        if (isEditMode && editAction === 'selecting_for_deletion') {
+            onSelectHotspotForDeletion(hotspotId);
+        } else if (!isEditMode) {
+            onHotspotClick(linkToMapId);
+        }
+    };
+
+    const handleContainerClick = (e: MouseEvent<HTMLDivElement>) => {
+        if (editAction === 'selecting_for_deletion' && e.target === containerRef.current) {
+            onClearSelection();
+        }
+    };
+
+    const handleTransformed = useCallback((ref: ReactZoomPanPinchRef, state: { scale: number; positionX: number; positionY: number }) => {
+        setCurrentScale(state.scale);
+        setCurrentPosX(state.positionX);
+        setCurrentPosY(state.positionY);
+    }, []);
+
+    // Effect to reset stored dimensions when the image URL changes
+    useEffect(() => {
+        setImageOriginalDims(null);
+    }, [imageUrl]);
+
+    // Dynamic Classes Calculation
     const containerClasses = classNames(
-        "relative inline-block max-w-full leading-none select-none", // Base styles from old containerStyle
-        { // Dynamic cursor based on edit mode and action
+        "relative block w-full h-full overflow-hidden",
+        {
             'cursor-crosshair': isEditMode && editAction === 'adding',
             'cursor-default': !isEditMode || (isEditMode && editAction !== 'adding'),
         }
     );
 
     const imageClasses = classNames(
-        "block max-w-full h-auto", // Base styles from old imageStyle
-        { // Disable pointer events ONLY when drawing
+        "relative block  w-full h-full",
+        {
             'pointer-events-none': isEditMode && editAction === 'adding'
         }
     );
 
-    // --- Add Unified Hotspot Interaction Handler ---
-    // This simplifies props passed to MapHotspotDisplay
-    const handleHotspotInteraction = (hotspotId: string, linkToMapId: string) => {
-        if (isEditMode && editAction === 'selecting_for_deletion') {
-            onSelectHotspotForDeletion(hotspotId); // Select/deselect logic
-        } else if (!isEditMode) {
-            onHotspotClick(linkToMapId); // Navigate in view mode
-        }
-        // Clicks are ignored in other edit modes ('adding', 'none')
-    };
+    const drawingRectClasses = "absolute border-2 border-dashed border-orange-500 bg-orange-500/20 box-border pointer-events-none z-[5]";
 
-    // --- Add Container Background Click Handler ---
-    const handleContainerClick = (e: MouseEvent<HTMLDivElement>) => {
-        // Clear selection if clicking directly on the container background
-        // while in selection mode
-        if (editAction === 'selecting_for_deletion' && e.target === containerRef.current) {
-            onClearSelection();
-        }
-        // Do NOT handle drawing start here (use onMouseDown)
-    };
-
-    // --- Drawing Rectangle Classes --- (Define classes separately)
-    const drawingRectClasses = "absolute border-2 border-dashed border-red-500 bg-red-500/10 box-border pointer-events-none z-[5]";
-
-    // Now the return statement follows...
-
-    // Replace the entire return statement (around line 213 onwards)
     return (
-        <Container // Changed from div
+        <Container
             ref={containerRef}
-            className={containerClasses} // Pass the calculated classes
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp} // Stop drawing if mouse leaves
-            onClick={handleContainerClick} // Handle background clicks
-        // We use variant="default" implicitly or could add a specific one if needed
+            className={containerClasses}
+            onClick={handleContainerClick}
+        ><TransformWrapper
+            ref={transformWrapperRef}
+            initialScale={1}
+            initialPositionX={0}
+            initialPositionY={0}
+            minScale={0.3}
+            maxScale={9}
+            limitToBounds={false}
+            doubleClick={{ disabled: true }}
+            onTransformed={handleTransformed}
+            disabled={isEditMode && (editAction === 'adding' || editAction === 'selecting_for_deletion')}
         >
-            <img
-                ref={imgRef}
-                src={imageUrl}
-                alt="Map Diagram"
-                className={imageClasses} // Use classes instead of style
-            />
+                {({ zoomIn, zoomOut, resetTransform, instance }) => (
+                    <React.Fragment>
+                        <div className="absolute top-2 left-2 z-10 space-x-1">
+                            <Button onClick={() => zoomIn()} variant="default" className="p-1">Zoom In</Button>
+                            <Button onClick={() => zoomOut()} variant="default" className="p-1">Zoom Out</Button>
+                            <Button onClick={() => resetTransform()} variant="default" className="p-1">Reset</Button>
+                        </div>
 
-            {/* Render hotspots using the new subcomponent */}
-            {hotspots.map((hotspot) => (
-                <MapHotspotDisplay
-                    key={hotspot.id}
-                    hotspot={hotspot}
-                    isEditMode={isEditMode}
-                    editAction={editAction}
-                    isSelected={hotspot.id === hotspotToDeleteId} // Pass selection status
-                    onClick={handleHotspotInteraction} // Pass unified handler
-                    onDeleteClick={onConfirmDeletion} // Pass deletion handler
-                />
-            ))}
+                        <TransformComponent
+                            wrapperStyle={{ width: "100%", height: "100%", position: 'relative' }}
+                            contentStyle={{ width: "100%", height: "100%" }}
+                        >
+                            <img
+                                ref={imgRef}
+                                src={imageUrl}
+                                alt="Map Diagram"
+                                className={imageClasses}
+                                onLoad={handleImageLoad}
+                            />
 
-            {/* Render the rectangle being drawn */}
-            {/* Keeping this as a div for simplicity, as it's temporary and absolutely positioned */}
-            {isDrawing && currentRect && (
-                <div
-                    className={drawingRectClasses} // Use Tailwind classes
-                    style={{ // Inline styles ONLY for dynamic position/size in pixels
-                        left: `${currentRect.x}px`,
-                        top: `${currentRect.y}px`,
-                        width: `${currentRect.width}px`,
-                        height: `${currentRect.height}px`,
-                    }}
-                />
-            )}
-            {/* --- CHANGE THIS: Closing Container tag --- */}
-        </Container> // Changed from div
+                            {hotspots.map((hotspot) => (
+                                <MapHotspotDisplay
+                                    key={hotspot.id}
+                                    hotspot={hotspot}
+                                    isEditMode={isEditMode}
+                                    editAction={editAction}
+                                    isSelected={hotspot.id === hotspotToDeleteId}
+                                    onClick={handleHotspotInteraction}
+                                    onDeleteClick={onConfirmDeletion}
+                                />
+                            ))}
+
+                            {isEditMode && editAction === 'adding' && (
+                                <div
+                                    className="absolute inset-0 z-[4] cursor-crosshair"
+                                    onMouseDown={handleMouseDown}
+                                    onMouseMove={handleMouseMove}
+                                    onMouseUp={handleMouseUp}
+                                    onMouseLeave={handleMouseUp}
+                                />
+                            )}
+                        </TransformComponent>
+                    </React.Fragment>
+                )}
+            </TransformWrapper>
+
+            {
+                isDrawing && currentRect && editAction === 'adding' && (
+                    <div
+                        className={drawingRectClasses}
+                        style={{
+                            left: `${currentRect.x}px`,
+                            top: `${currentRect.y}px`,
+                            width: `${currentRect.width}px`,
+                            height: `${currentRect.height}px`,
+                        }}
+                    />
+                )
+            }
+        </Container>
     );
 };
 

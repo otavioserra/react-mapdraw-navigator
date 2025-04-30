@@ -58,13 +58,11 @@ const Mapdraw: React.FC<MapdrawProps> = ({
     const handleHotspotClick = useCallback((mapId: string) => {
         // Prevent navigation if in delete selection mode (or potentially other edit modes)
         if (isEditMode && editAction === 'selecting_for_deletion') {
-            console.log("Hotspot click ignored for navigation during selection for deletion.");
             // Selection logic will happen in MapImageViewer's own click handler
             return;
         }
         // Prevent navigation if in adding mode (drawing)
         if (isEditMode && editAction === 'adding') {
-            console.log("Hotspot click ignored for navigation during adding mode.");
             return;
         }
         // Allow navigation if not in edit mode or if edit mode is 'none'
@@ -154,8 +152,6 @@ const Mapdraw: React.FC<MapdrawProps> = ({
         // (Confirm arguments are correct: currentMapId, newHotspot, newMapUrl)
         addHotspotAndMapDefinition(currentMapId, newHotspot, newMapUrl);
 
-        console.log(`Added new hotspot '${newHotspot.id}' linking to new map '${newMapId}' with image '${newMapUrl}'`);
-
         // Reset state and close modal
         // (Keep cleanup logic - calling handleModalCancel covers resetting pendingGeneratedMapId)
         handleModalCancel();
@@ -175,13 +171,11 @@ const Mapdraw: React.FC<MapdrawProps> = ({
     // Handler for when a hotspot is clicked in 'selecting_for_deletion' mode
     const handleSelectHotspotForDeletion = useCallback((hotspotId: string) => {
         setHotspotToDeleteId(prevId => (prevId === hotspotId ? null : hotspotId)); // Select or toggle deselect
-        console.log("Selected hotspot ID for deletion:", hotspotId);
     }, []);
 
     // Handler to clear the selection (e.g., clicking background)
     const handleClearDeletionSelection = useCallback(() => {
         setHotspotToDeleteId(null);
-        console.log("Cleared hotspot deletion selection.");
     }, []);
 
     // Handler to actually delete the selected hotspot
@@ -191,7 +185,6 @@ const Mapdraw: React.FC<MapdrawProps> = ({
             console.error("Cannot delete hotspot: currentMapId is not set.");
             return;
         }
-        console.log(`Attempting to delete hotspot ${hotspotIdToDelete} from map ${currentMapId}`);
         deleteHotspot(currentMapId, hotspotIdToDelete);
         setHotspotToDeleteId(null); // Clear selection after deletion
         // Optional: setEditAction('none') or stay in selection mode? Let's stay.
@@ -204,9 +197,6 @@ const Mapdraw: React.FC<MapdrawProps> = ({
             if (exitingEditMode) {
                 // Reset the edit action when exiting edit mode
                 setEditAction('none'); // Use the setter from the hook
-                console.log("Exiting edit mode, resetting editAction to 'none'");
-            } else {
-                console.log("Entering edit mode");
             }
             return !prevIsEditMode; // Toggle the local state
         });
@@ -236,7 +226,6 @@ const Mapdraw: React.FC<MapdrawProps> = ({
 
         if (!file) { return; }
 
-        console.log(`Mapdraw Instance: File selected: ${file.name}`);
         const reader = new FileReader();
         reader.onload = (e) => {
             const text = e.target?.result;
@@ -282,7 +271,6 @@ const Mapdraw: React.FC<MapdrawProps> = ({
             {/* Display Map Viewer */}
             {currentMapDisplayData && !error && (
                 <MapImageViewer
-                    key={currentMapId}
                     imageUrl={currentMapDisplayData.imageUrl}
                     hotspots={currentMapDisplayData.hotspots}
                     onHotspotClick={handleHotspotClick}

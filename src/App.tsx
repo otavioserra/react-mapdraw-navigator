@@ -12,8 +12,6 @@ function App() {
   // No map-specific state or handlers needed here anymore,
   // as main.tsx initializes Mapdraw instances directly.
 
-  console.log("App component rendered (might only provide page structure now).");
-
   return (
     // Example: App provides the main page container and title/footer
     <Container className="App container mx-auto p-4">
