@@ -1,5 +1,4 @@
 // src/App.tsx (Simplified - No longer manages Mapdraw state/rendering directly)
-import React from 'react';
 // Import structural components if App still provides overall page layout
 import Container from './components/Container';
 import Heading from './components/Heading';

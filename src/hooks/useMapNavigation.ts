@@ -280,7 +280,7 @@ export const useMapNavigation = (
                 }
 
                 // Find the specific hotspot object *before* filtering the array
-                const hotspotToDelete = targetMapDef.hotspots.find(hs => hs.id === hotspotIdToDelete);
+                const hotspotToDelete = targetMapDef.hotspots.find((hs: Hotspot) => hs.id === hotspotIdToDelete);
                 const linkedMapId = hotspotToDelete?.link_to_map_id; // Get the ID it potentially links to
 
                 const initialHotspotCount = targetMapDef.hotspots.length;

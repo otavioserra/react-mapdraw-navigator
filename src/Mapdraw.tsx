@@ -1,5 +1,5 @@
 // src/Mapdraw.tsx
-import React, { useCallback, useState, ChangeEvent, FormEvent, useRef, useEffect } from 'react';
+import React, { useCallback, useState, ChangeEvent, FormEvent, useRef } from 'react';
 import Modal from 'react-modal';
 import MapImageViewer, { MapImageViewerRefHandle } from './components/MapImageViewer';
 import AppControls from './components/AppControls';
@@ -9,7 +9,7 @@ import Heading from './components/Heading';
 import Label from './components/Label';
 import Input from './components/Input';
 import Form from './components/Form';
-import { useMapNavigation, Hotspot, MapCollection, EditAction } from './hooks/useMapNavigation';
+import { useMapNavigation, Hotspot } from './hooks/useMapNavigation';
 
 // Define a simpler config type inline or separately
 interface MapdrawConfig {

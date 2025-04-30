@@ -28,14 +28,14 @@ const MapHotspotDisplay: React.FC<MapHotspotDisplayProps> = ({
 
     if (isEditMode) {
         if (editAction === 'selecting_for_deletion') {
-            modeClasses = `cursor-pointer border border-dashed border-red-500/70 bg-red-500/10 hover:bg-red-500/20 pointer-events-auto`;
+            modeClasses = `cursor-pointer border-2 border-dashed border-red-900/70 bg-red-500/70 hover:bg-red-500/20 pointer-events-auto animate-pulse`;
             if (isSelected) {
-                modeClasses = `cursor-pointer border-2 border-solid border-red-600 bg-red-500/40 pointer-events-auto shadow-lg shadow-red-500/50 ring-2 ring-red-400 ring-offset-1`; // Enhanced selected style
+                modeClasses = `cursor-pointer border-2 border-solid border-red-900 bg-red-700/70 pointer-events-auto shadow-lg shadow-red-500/50 ring-2 ring-red-400 ring-offset-1 animate-pulse`; // Enhanced selected style
             }
         } else if (editAction === 'adding') {
-            modeClasses = `cursor-default border border-dashed border-orange-400 bg-orange-500/10 pointer-events-none`; // Visible but non-interactive
+            modeClasses = `cursor-default border-2 border-dashed border-green-700 bg-green-500/70 pointer-events-none animate-pulse`; // Visible but non-interactive
         } else { // isEditMode but action is 'none'
-            modeClasses = `cursor-default border border-dashed border-gray-400 bg-gray-500/10 pointer-events-none`; // Visible but non-interactive
+            modeClasses = `cursor-default border-2 border-dashed border-blue-900 bg-blue-500/70 pointer-events-none animate-pulse`; // Visible but non-interactive
         }
     } else {
         // View Mode

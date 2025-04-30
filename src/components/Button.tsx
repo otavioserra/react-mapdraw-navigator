@@ -64,7 +64,6 @@ const Button: React.FC<ButtonProps> = ({
     }
 
     // Apply disabled style if the 'disabled' prop is true, overriding variant if necessary
-    const currentVariant = disabled ? 'disabled' : variant;
     if (disabled) {
         // Recalculate classes for the disabled state
         baseClasses = "px-3 py-1 rounded border font-medium text-xs cursor-not-allowed opacity-50";

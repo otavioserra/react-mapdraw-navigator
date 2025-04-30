@@ -115,7 +115,7 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
         setCurrentRect({ x, y, width, height });
     };
 
-    const handleMouseUp = (event: MouseEvent<HTMLDivElement>) => {
+    const handleMouseUp = () => {
         if (!isDrawing || !startCoords || !currentRect) {
             setIsDrawing(false);
             setStartCoords(null);
@@ -197,7 +197,7 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
         }
     };
 
-    const handleTransformed = useCallback((ref: ReactZoomPanPinchRef, state: { scale: number; positionX: number; positionY: number }) => {
+    const handleTransformed = useCallback((_ref: ReactZoomPanPinchRef, state: { scale: number; positionX: number; positionY: number }) => {
         setCurrentScale(state.scale);
         setCurrentPosX(state.positionX);
         setCurrentPosY(state.positionY);
@@ -247,7 +247,7 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
         }
     );
 
-    const drawingRectClasses = "absolute border-2 border-dashed border-orange-500 bg-orange-500/20 box-border pointer-events-none z-[5]";
+    const drawingRectClasses = "absolute border-2 border-dashed border-green-500 bg-green-500/20 box-border pointer-events-none z-[5]";
 
     return (
         <Container

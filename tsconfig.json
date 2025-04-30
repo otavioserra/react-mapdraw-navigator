@@ -1,0 +1,27 @@
+{
+    "compilerOptions": {
+        "target": "ES2020", // Alvo moderno, Vite cuida da compatibilidade
+        "useDefineForClassFields": true, // Padrão do Vite
+        "lib": [
+            "ES2020",
+            "DOM",
+            "DOM.Iterable"
+        ], // Bibliotecas de tipos essenciais
+        "module": "ESNext", // Usa módulos ES modernos
+        "skipLibCheck": true, // Pula verificação de tipos em arquivos .d.ts de bibliotecas
+        /* Bundler mode */
+        "moduleResolution": "bundler", // Resolução de módulos moderna recomendada para Vite/Bundlers
+        "resolveJsonModule": true, // Permite importar arquivos .json
+        "isolatedModules": true, // Exigido pelo Vite, garante que cada arquivo pode ser compilado separadamente
+        "noEmit": true, // NÃO gera arquivos JS/map pelo tsc; Vite/esbuild farão isso. tsc apenas verifica tipos.
+        "jsx": "react-jsx", // ESSENCIAL: Habilita JSX para React (nova transformação)
+        /* Linting */
+        "strict": true, // Habilita todas as checagens estritas de tipo (recomendado)
+        "noUnusedLocals": true, // Avisa sobre variáveis locais não usadas
+        "noUnusedParameters": true, // Avisa sobre parâmetros não usados
+        "noFallthroughCasesInSwitch": true // Evita erros em switches
+    },
+    "include": [
+        "src"
+    ], // Diz ao tsc para incluir todos os arquivos dentro da pasta 'src'
+}
