@@ -1,9 +1,9 @@
-// src/main.tsx (Updated to initialize multiple Mapdraw instances)
+// src/main.tsx
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import Modal from 'react-modal';
-import Mapdraw from './Mapdraw'; // Import Mapdraw directly
-import './index.css'; // Your Tailwind/CSS imports
+import Mapdraw from './Mapdraw';
+import './index.css';
 
 // Set the app element for modal accessibility (using the original #root)
 // This is important even if App isn't rendered directly into #root anymore,
@@ -16,24 +16,14 @@ if (rootAppElement) {
     Modal.setAppElement(document.body);
 }
 
-
-// --- Mapdraw Initialization Logic ---
-
 // Default Root Map ID (fallback if not specified or found in JSON)
-const DEFAULT_ROOT_MAP_ID = 'rootMap'; // Adjust if your default is different
+const DEFAULT_ROOT_MAP_ID = 'rootMap';
 
 // Find all elements designated to host a Mapdraw instance
 const mapContainers = document.querySelectorAll<HTMLDivElement>('.react-mapdraw-navigator');
 
 if (mapContainers.length === 0) {
     console.warn("No elements found with class 'react-mapdraw-navigator'. Mapdraw will not be initialized.");
-    // If you still have other React content that should render in #root,
-    // you could render <App /> here conditionally.
-    // Example:
-    // if (rootAppElement) {
-    //    ReactDOM.createRoot(rootAppElement).render(<React.StrictMode><App /></React.StrictMode>);
-    // }
-
 } else {
     console.log(`Found ${mapContainers.length} Mapdraw instance(s) (using class 'react-mapdraw-navigator') to initialize.`);
 
@@ -89,6 +79,7 @@ if (mapContainers.length === 0) {
 
             // --- Step 2: Clean container and Render React (happens ONCE per element) ---
             containerElement.textContent = ''; // Clear container content
+            containerElement.classList.remove('hidden'); // Remove hidden class
             const root = ReactDOM.createRoot(containerElement); // Create root
             root.render( // Render Mapdraw with determined props
                 <React.StrictMode>

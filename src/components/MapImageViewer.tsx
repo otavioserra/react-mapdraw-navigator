@@ -5,6 +5,7 @@ import { Hotspot, EditAction } from '../hooks/useMapNavigation';
 import MapHotspotDisplay from './MapHotspotDisplay';
 import Container from './Container';
 import Button from './Button';
+import LoadingIndicator from './LoadingIndicator';
 import { TransformWrapper, TransformComponent, ReactZoomPanPinchRef } from "react-zoom-pan-pinch";
 
 // Define types for coordinates and rectangles used internally
@@ -56,6 +57,7 @@ const MapImageViewer: React.FC<MapImageViewerProps> = ({
     const [imageOriginalDims, setImageOriginalDims] = useState<{ width: number; height: number } | null>(null);
     const [currentPosX, setCurrentPosX] = useState(0);
     const [currentPosY, setCurrentPosY] = useState(0);
+    const [isImageLoading, setIsImageLoading] = useState<boolean>(true);
 
     // Refs
     const containerRef = useRef<HTMLDivElement>(null);
@@ -173,6 +175,7 @@ const MapImageViewer: React.FC<MapImageViewerProps> = ({
         } else {
             setImageOriginalDims(null);
         }
+        setIsImageLoading(false);
     };
 
     const handleHotspotInteraction = (hotspotId: string, linkToMapId: string) => {
@@ -198,6 +201,7 @@ const MapImageViewer: React.FC<MapImageViewerProps> = ({
     // Effect to reset stored dimensions when the image URL changes
     useEffect(() => {
         setImageOriginalDims(null);
+        setIsImageLoading(true);
     }, [imageUrl]);
 
     // Dynamic Classes Calculation
@@ -210,7 +214,7 @@ const MapImageViewer: React.FC<MapImageViewerProps> = ({
     );
 
     const imageClasses = classNames(
-        "relative block  w-full h-full",
+        "relative block w-full h-full",
         {
             'pointer-events-none': isEditMode && editAction === 'adding'
         }
@@ -223,18 +227,21 @@ const MapImageViewer: React.FC<MapImageViewerProps> = ({
             ref={containerRef}
             className={containerClasses}
             onClick={handleContainerClick}
-        ><TransformWrapper
-            ref={transformWrapperRef}
-            initialScale={1}
-            initialPositionX={0}
-            initialPositionY={0}
-            minScale={0.3}
-            maxScale={9}
-            limitToBounds={false}
-            doubleClick={{ disabled: true }}
-            onTransformed={handleTransformed}
-            disabled={isEditMode && (editAction === 'adding' || editAction === 'selecting_for_deletion')}
         >
+            {isImageLoading && <LoadingIndicator />}
+
+            <TransformWrapper
+                ref={transformWrapperRef}
+                initialScale={1}
+                initialPositionX={0}
+                initialPositionY={0}
+                minScale={0.3}
+                maxScale={9}
+                limitToBounds={false}
+                doubleClick={{ disabled: true }}
+                onTransformed={handleTransformed}
+                disabled={isEditMode && (editAction === 'adding' || editAction === 'selecting_for_deletion')}
+            >
                 {({ zoomIn, zoomOut, resetTransform, instance }) => (
                     <React.Fragment>
                         <div className="absolute top-2 left-2 z-10 space-x-1">
