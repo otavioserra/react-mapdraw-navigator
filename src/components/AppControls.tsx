@@ -3,6 +3,8 @@ import React from 'react';
 import Button from './Button';
 import Container from './Container';
 import { EditAction } from '../hooks/useMapNavigation';
+import Label from './Label';
+import Input from './Input';
 
 interface AppControlsProps {
     onBack: () => void;
@@ -17,6 +19,12 @@ interface AppControlsProps {
     onZoomOut?: () => void;
     onResetTransform?: () => void;
     isAdminEnabled?: boolean;
+    isCurrentlyOnRootMap?: boolean;
+    onChangeRootImage?: () => void;
+    newRootUrlInput?: string;
+    onNewRootUrlChange?: (value: string) => void;
+    onConfirmChangeRootImage?: () => void;
+    onCancelChangeRootImage?: () => void;
 }
 
 const NormalModeControls: React.FC<Pick<AppControlsProps, 'onExportJson' | 'onToggleEditMode'>> = ({
@@ -82,6 +90,12 @@ const AppControls: React.FC<AppControlsProps> = ({
     onZoomOut,
     onResetTransform,
     isAdminEnabled = false,
+    isCurrentlyOnRootMap = false,
+    onChangeRootImage,
+    newRootUrlInput = '',
+    onNewRootUrlChange,
+    onConfirmChangeRootImage,
+    onCancelChangeRootImage,
 }) => {
     const isBackEnabled = canGoBack && !isEditMode;
     const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -110,22 +124,53 @@ const AppControls: React.FC<AppControlsProps> = ({
 
             <Container variant="control-group">
 
-
-                {isAdminEnabled && (isEditMode
-                    ? <EditModeControls
-                        onToggleEditMode={onToggleEditMode}
-                        setEditAction={setEditAction}
-                        editAction={editAction}
-                    />
-                    : <>
-                        <Button variant="default" onClick={handleImportClick}>
-                            Import JSON
-                        </Button>
-                        <NormalModeControls
-                            onExportJson={onExportJson}
-                            onToggleEditMode={onToggleEditMode}
-                        />
-                    </>
+                {isAdminEnabled && (
+                    (editAction === 'changing_root_image')
+                        ? (
+                            <Container variant='default' className='flex items-end gap-2 pl-4 border-l ml-2'> {/* Simple container for this mode */}
+                                <div className="flex-grow">
+                                    <Label htmlFor="newRootUrlCtrl" className="block text-xs font-medium text-gray-600 mb-1">
+                                        New Root Image URL:
+                                    </Label>
+                                    <Input
+                                        type="text"
+                                        id="newRootUrlCtrl"
+                                        value={newRootUrlInput}
+                                        // Use onChange handler passed from Mapdraw
+                                        onChange={(e) => onNewRootUrlChange?.(e.target.value)}
+                                        placeholder="Enter new image URL"
+                                        className="block w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm text-xs focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                    />
+                                </div>
+                                {/* Use handlers passed from Mapdraw */}
+                                <Button onClick={onConfirmChangeRootImage} variant="primary" className="py-1.5">Save</Button>
+                                <Button onClick={onCancelChangeRootImage} variant="default" className="py-1.5">Cancel</Button>
+                            </Container>
+                        )
+                        : (isEditMode)
+                            ? (
+                                <EditModeControls
+                                    onToggleEditMode={onToggleEditMode}
+                                    setEditAction={setEditAction}
+                                    editAction={editAction}
+                                />
+                            )
+                            : (
+                                <>
+                                    {isCurrentlyOnRootMap && onChangeRootImage && (
+                                        <Button variant="default" onClick={onChangeRootImage}>
+                                            Change Root Image
+                                        </Button>
+                                    )}
+                                    <Button variant="default" onClick={handleImportClick}>
+                                        Import JSON
+                                    </Button>
+                                    <NormalModeControls
+                                        onExportJson={onExportJson}
+                                        onToggleEditMode={onToggleEditMode}
+                                    />
+                                </>
+                            )
                 )}
             </Container>
         </Container>

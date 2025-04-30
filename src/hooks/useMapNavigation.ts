@@ -40,7 +40,7 @@ export interface MapDisplayData {
 }
 
 /** Possible actions while in edit mode */
-export type EditAction = 'none' | 'adding' | 'selecting_for_deletion';
+export type EditAction = 'none' | 'adding' | 'selecting_for_deletion' | 'changing_root_image';
 
 /** Defines the structure of the object returned by the useMapNavigation hook. */
 interface UseMapNavigationReturn {

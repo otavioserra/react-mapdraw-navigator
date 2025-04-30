@@ -9,7 +9,7 @@ import Heading from './components/Heading';
 import Label from './components/Label';
 import Input from './components/Input';
 import Form from './components/Form';
-import { useMapNavigation, Hotspot } from './hooks/useMapNavigation';
+import { useMapNavigation, Hotspot, MapCollection } from './hooks/useMapNavigation';
 
 // Define a simpler config type inline or separately
 interface MapdrawConfig {
@@ -61,9 +61,11 @@ const Mapdraw: React.FC<MapdrawProps> = ({
     const [pendingGeneratedMapId, setPendingGeneratedMapId] = useState<string | null>(null);
     const [hotspotToDeleteId, setHotspotToDeleteId] = useState<string | null>(null);
     const mapViewerRef = useRef<MapImageViewerRefHandle>(null);
+    const [newRootUrlInput, setNewRootUrlInput] = useState('');
 
     // Configs
     const isAdminEnabled = config?.isAdminEnabled ?? false;
+    const isCurrentlyOnRootMap = currentMapId === rootMapId;
 
     // --- Event Handlers ---
     const handleHotspotClick = useCallback((mapId: string) => {
@@ -270,6 +272,66 @@ const Mapdraw: React.FC<MapdrawProps> = ({
         mapViewerRef.current?.doResetTransform();
     }, []);
 
+    const handleInitiateChangeRootImage = useCallback(() => {
+        if (!currentMapId || currentMapId !== rootMapId) return; // Ensure we are on root map
+
+        setNewRootUrlInput(currentMapDisplayData?.imageUrl || ''); // Pre-fill input
+        setEditAction('changing_root_image'); // Set the new mode
+        setHotspotToDeleteId(null); // Clear any deletion selection state
+
+    }, [currentMapId, rootMapId, setEditAction, currentMapDisplayData?.imageUrl]);
+
+    const handleConfirmChangeRootImage = useCallback(() => {
+        // rootMapId comes from props (the initial root for this instance)
+        if (!rootMapId) {
+            console.error("Cannot change root image: Initial rootMapId is missing.");
+            return;
+        }
+
+        const trimmedUrl = newRootUrlInput.trim();
+        if (!trimmedUrl) {
+            alert("Image URL cannot be empty.");
+            return;
+        }
+        // Basic URL validation
+        try { new URL(trimmedUrl); } catch (_) { if (!trimmedUrl.startsWith('/')) { alert('Invalid URL format.'); return; } }
+
+        // --- Action: Create minimal data structure and call loadNewMapData ---
+        console.log(`Attempting to reset map data with new root image for map '${rootMapId}': ${trimmedUrl}`);
+
+        // 1. Create the minimal new map data object
+        const newMapData: MapCollection = {
+            [rootMapId]: { // Use the original rootMapId as the key
+                imageUrl: trimmedUrl,
+                hotspots: [] // Start with no hotspots
+            }
+        };
+
+        // 2. Convert to JSON string
+        const newJsonString = JSON.stringify(newMapData);
+
+        // 3. Call the hook function to load this new structure, replacing everything else
+        loadNewMapData(newJsonString);
+        // loadNewMapData already handles:
+        // - setManagedMapData(newMapData)
+        // - setCurrentMapId(rootMapId)
+        // - setCurrentMapDisplayData
+        // - setNavigationHistory([])
+        // - setError(null)
+        // - setEditAction('none')
+
+        // --- End of new logic ---
+
+        setEditAction('none'); // Exit the changing mode (loadNewMapData also does this, but explicit here is ok)
+        setNewRootUrlInput(''); // Clear the input
+
+    }, [rootMapId, newRootUrlInput, loadNewMapData, setEditAction]);
+
+    const handleCancelChangeRootImage = useCallback(() => {
+        setEditAction('none'); // Exit the changing mode
+        setNewRootUrlInput(''); // Clear the input
+    }, [setEditAction]);
+
     // --- Styling ---
     const containerClasses = `mapdraw-container ${className || ''}`.trim(); // Removed 'relative' as it might not be needed here anymore
 
@@ -290,6 +352,12 @@ const Mapdraw: React.FC<MapdrawProps> = ({
                 onZoomOut={handleZoomOut}
                 onResetTransform={handleResetTransform}
                 isAdminEnabled={isAdminEnabled}
+                isCurrentlyOnRootMap={isCurrentlyOnRootMap}
+                onChangeRootImage={handleInitiateChangeRootImage} // Triggers the mode
+                newRootUrlInput={newRootUrlInput} // Input value state
+                onNewRootUrlChange={setNewRootUrlInput} // Input onChange handler (setter)
+                onConfirmChangeRootImage={handleConfirmChangeRootImage} // Save button handler
+                onCancelChangeRootImage={handleCancelChangeRootImage}
             />
 
             {/* Display Error Messages using Container */}
