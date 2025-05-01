@@ -12,7 +12,7 @@ import Form from './components/Form';
 import { useMapNavigation, Hotspot, MapCollection } from './hooks/useMapNavigation';
 
 // Define a simpler config type inline or separately
-interface MapdrawConfig {
+export interface MapdrawConfig {
     isAdminEnabled?: boolean;
 }
 
@@ -28,6 +28,7 @@ interface MapdrawProps {
     className?: string;
     initialDataJsonString?: string;
     config?: MapdrawConfig;
+    onHeightChange?: (height: number) => void;
 }
 
 const generateUniqueIdPart = () => Date.now().toString(36) + Math.random().toString(36).substring(2, 5);
@@ -36,7 +37,8 @@ const Mapdraw: React.FC<MapdrawProps> = ({
     rootMapId,
     className,
     initialDataJsonString,
-    config
+    config,
+    onHeightChange
 }) => {
     const {
         currentMapId,
@@ -333,7 +335,7 @@ const Mapdraw: React.FC<MapdrawProps> = ({
     }, [setEditAction]);
 
     // --- Styling ---
-    const containerClasses = `mapdraw-container ${className || ''}`.trim(); // Removed 'relative' as it might not be needed here anymore
+    const containerClasses = `mapdraw-container relative ${className || ''}`.trim(); // Removed 'relative' as it might not be needed here anymore
 
     // --- Render Logic (Refactored) ---
     return (
@@ -358,6 +360,7 @@ const Mapdraw: React.FC<MapdrawProps> = ({
                 onNewRootUrlChange={setNewRootUrlInput} // Input onChange handler (setter)
                 onConfirmChangeRootImage={handleConfirmChangeRootImage} // Save button handler
                 onCancelChangeRootImage={handleCancelChangeRootImage}
+                onHeightChange={onHeightChange}
             />
 
             {/* Display Error Messages using Container */}

@@ -2,7 +2,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import Modal from 'react-modal';
-import Mapdraw from './Mapdraw';
+import MapdrawInstanceWrapper from './MapdrawInstanceWrapper';
 import './index.css';
 
 // Set the app element for modal accessibility (using the original #root)
@@ -16,9 +16,6 @@ if (rootAppElement) {
     Modal.setAppElement(document.body);
 }
 
-// Default Root Map ID (fallback if not specified or found in JSON)
-const DEFAULT_ROOT_MAP_ID = 'rootMap';
-
 // Find all elements designated to host a Mapdraw instance
 const mapContainers = document.querySelectorAll<HTMLDivElement>('.react-mapdraw-navigator');
 
@@ -27,75 +24,54 @@ if (mapContainers.length === 0) {
 } else {
     console.log(`Found ${mapContainers.length} Mapdraw instance(s) (using class 'react-mapdraw-navigator') to initialize.`);
 
-    // Iterate over each container and render a Mapdraw instance
+    // Iterate over each container and render a MapdrawInstanceWrapper instance
     mapContainers.forEach((containerElement, index) => {
-        // --- Check if already initialized (from previous fix) ---
         if (!containerElement.dataset.reactMapdrawInitialized) {
+            console.log(`Initializing Mapdraw instance ${index}...`);
             containerElement.dataset.reactMapdrawInitialized = 'true';
 
-            console.log(`Initializing Mapdraw instance ${index}...`);
-            let initialJsonDataString: string | undefined = undefined;
-            let rootMapId: string = DEFAULT_ROOT_MAP_ID; // Start with default
-
-            const jsonContent = containerElement.textContent?.trim();
+            // --- Read Initial Config Once ---
+            const DEFAULT_ROOT_MAP_ID = 'rootMap';
+            let rootMapId: string = DEFAULT_ROOT_MAP_ID;
             const rootIdOverride = containerElement.dataset.mapdrawRootId;
 
-            // --- Step 1: Determine rootMapId and initialJsonDataString ---
-            if (rootIdOverride) {
-                rootMapId = rootIdOverride;
-                console.log(`Instance ${index}: Using root ID from data attribute: ${rootMapId}`);
-            }
+            // --- Read Initial embedded JSON ---
+            let initialJsonDataString: string | undefined = undefined;
+            const jsonContent = containerElement.textContent?.trim();
 
+            if (rootIdOverride) { rootMapId = rootIdOverride; }
             if (jsonContent && jsonContent.length > 0) {
                 try {
                     const parsedData = JSON.parse(jsonContent);
                     if (typeof parsedData === 'object' && parsedData !== null && Object.keys(parsedData).length > 0) {
-                        initialJsonDataString = jsonContent; // Use the valid JSON string
-                        console.log(`Instance ${index}: Successfully parsed embedded JSON.`);
-                        if (!rootIdOverride) { // Infer rootId only if not overridden
+                        initialJsonDataString = jsonContent;
+                        if (!rootIdOverride) {
                             const firstKey = Object.keys(parsedData)[0];
-                            if (firstKey) {
-                                rootMapId = firstKey;
-                                console.log(`Instance ${index}: Using first key '${rootMapId}' as root ID from JSON.`);
-                            } else {
-                                console.warn(`Instance ${index}: Embedded JSON has no keys, using default root ID '${rootMapId}'.`);
-                            }
+                            if (firstKey) { rootMapId = firstKey; }
                         }
-                    } else {
-                        console.warn(`Instance ${index}: Embedded JSON content is not a valid object or is empty. Falling back to default data.`);
-                        initialJsonDataString = undefined; // Fallback
-                        rootMapId = DEFAULT_ROOT_MAP_ID;   // Fallback
                     }
-                } catch (e) {
-                    console.error(`Instance ${index}: Failed to parse embedded JSON data. Falling back to default data.`, e);
-                    initialJsonDataString = undefined; // Fallback
-                    rootMapId = DEFAULT_ROOT_MAP_ID;   // Fallback
-                }
-            } else {
-                console.warn(`Instance ${index}: No JSON content found inside element. Using default data.`);
-                initialJsonDataString = undefined; // Fallback
-                rootMapId = DEFAULT_ROOT_MAP_ID;   // Fallback
+                } catch (e) { console.error("Wrapper: Failed to parse JSON.", e); }
             }
 
+            // --- Config defined ---
             const config = {
-                isAdminEnabled: containerElement.dataset.enableAdmin === 'true' // Reads the attribute, defaults to false if missing/not 'true'
+                isAdminEnabled: containerElement.dataset.enableAdmin === 'true'
             };
 
-            // --- Step 2: Clean container and Render React (happens ONCE per element) ---
-            containerElement.textContent = ''; // Clear container content
-            containerElement.classList.remove('hidden'); // Remove hidden class
-            const root = ReactDOM.createRoot(containerElement); // Create root
-            root.render( // Render Mapdraw with determined props
+            // --- Render and start MapdrawInstanceWrapper ---
+            containerElement.textContent = '';
+            containerElement.classList.remove('hidden');
+            const root = ReactDOM.createRoot(containerElement);
+            root.render(
                 <React.StrictMode>
-                    <Mapdraw
+                    <MapdrawInstanceWrapper
+                        containerElement={containerElement}
                         rootMapId={rootMapId}
-                        initialDataJsonString={initialJsonDataString} // Will be undefined for default case
+                        initialDataJsonString={initialJsonDataString}
                         config={config}
                     />
                 </React.StrictMode>
             );
-            console.log(`Instance ${index}: React Mapdraw initialized (Using ${initialJsonDataString ? 'embedded' : 'default'} data).`);
-
         }
     });
 }

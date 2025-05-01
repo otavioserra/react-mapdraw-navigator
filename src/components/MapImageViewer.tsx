@@ -6,6 +6,7 @@ import MapHotspotDisplay from './MapHotspotDisplay';
 import Container from './Container';
 import LoadingIndicator from './LoadingIndicator';
 import { TransformWrapper, TransformComponent, ReactZoomPanPinchRef } from "react-zoom-pan-pinch";
+import { useMapInstanceContext } from '../contexts/MapInstanceContext';
 
 // Handle type definition
 export interface MapImageViewerRefHandle {
@@ -55,7 +56,7 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
     onClearSelection,
     onConfirmDeletion,
 }, ref) => {
-    // State for drawing logic
+    // States
     const [isDrawing, setIsDrawing] = useState<boolean>(false);
     const [startCoords, setStartCoords] = useState<Coords | null>(null);
     const [currentScale, setCurrentScale] = useState(1);
@@ -64,6 +65,8 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
     const [currentPosX, setCurrentPosX] = useState(0);
     const [currentPosY, setCurrentPosY] = useState(0);
     const [isImageLoading, setIsImageLoading] = useState<boolean>(true);
+
+    const { containerDims, controlsHeight } = useMapInstanceContext();
 
     // Refs
     const containerRef = useRef<HTMLDivElement>(null);
@@ -231,14 +234,22 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
         }
     }), []);
 
-    // Dynamic Classes Calculation
+    // Dynamic Classes & Styles Calculation
     const containerClasses = classNames(
-        "relative block w-full h-full overflow-hidden",
+        "block overflow-hidden",
         {
             'cursor-crosshair': isEditMode && editAction === 'adding',
             'cursor-move': !isEditMode,
         }
     );
+
+    const containerStyle: React.CSSProperties = {
+        position: 'absolute',
+        left: '0',
+        top: (controlsHeight ?? 0) + 'px',
+        width: containerDims?.width ? `${containerDims.width}px` : '100%',
+        height: containerDims?.height ? `${(containerDims.height - (controlsHeight ?? 0))}px` : '100%',
+    };
 
     const imageClasses = classNames(
         "relative block w-full h-full object-contain",
@@ -253,9 +264,14 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
         <Container
             ref={containerRef}
             className={containerClasses}
+            style={containerStyle}
             onClick={handleContainerClick}
         >
-            {isImageLoading && <LoadingIndicator />}
+            <LoadingIndicator
+                isVisible={isImageLoading}
+                containerDims={containerDims}
+                controlsHeight={controlsHeight}
+            />
 
             <TransformWrapper
                 ref={transformWrapperRef}

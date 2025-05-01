@@ -1,5 +1,5 @@
 // src/components/AppControls.tsx
-import React from 'react';
+import React, { useEffect } from 'react';
 import Button from './Button';
 import Container from './Container';
 import { EditAction } from '../hooks/useMapNavigation';
@@ -25,6 +25,7 @@ interface AppControlsProps {
     onNewRootUrlChange?: (value: string) => void;
     onConfirmChangeRootImage?: () => void;
     onCancelChangeRootImage?: () => void;
+    onHeightChange?: (height: number) => void;
 }
 
 const NormalModeControls: React.FC<Pick<AppControlsProps, 'onExportJson' | 'onToggleEditMode'>> = ({
@@ -96,15 +97,41 @@ const AppControls: React.FC<AppControlsProps> = ({
     onNewRootUrlChange,
     onConfirmChangeRootImage,
     onCancelChangeRootImage,
+    onHeightChange,
 }) => {
     const isBackEnabled = canGoBack && !isEditMode;
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     const handleImportClick = () => {
         fileInputRef.current?.click();
     };
+    const contRef = React.useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        const observedElement = contRef.current;
+        if (!observedElement || !onHeightChange) return;
+
+        // Function to call when size changes
+        const reportHeight = () => {
+            const newHeight = observedElement.offsetHeight;
+            // console.log("AppControls reporting height:", newHeight); // Debug log
+            onHeightChange(newHeight); // Call the callback passed from parent
+        };
+
+        const resizeObserver = new ResizeObserver(reportHeight);
+        resizeObserver.observe(observedElement);
+        reportHeight(); // Report initial height
+
+        // Cleanup
+        return () => {
+            if (observedElement) { // Check element still exists
+                resizeObserver.unobserve(observedElement);
+            }
+        };
+        // Dependencies: the ref's current value and the callback function
+    }, [contRef]);
 
     return (
-        <Container variant="control-bar">
+        <Container variant="control-bar" ref={contRef}>
             <input
                 type="file"
                 ref={fileInputRef}
