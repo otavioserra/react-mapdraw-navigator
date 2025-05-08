@@ -5,7 +5,6 @@ import Container from './Container';
 import { EditAction } from '../hooks/useMapNavigation';
 import Label from './Label';
 import Input from './Input';
-import { Provider as TooltipProvider } from '@radix-ui/react-tooltip';
 
 interface AppControlsProps {
     onBack: () => void;
@@ -156,93 +155,91 @@ const AppControls: React.FC<AppControlsProps> = ({
                 style={{ display: 'none' }}
             />
 
-            <TooltipProvider delayDuration={150}>
-                <Container variant="control-group">
-                    <Button variant="back" onClick={onBack} disabled={!isBackEnabled} tooltipContent="Back">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-6">
-                            <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-4.28 9.22a.75.75 0 0 0 0 1.06l3 3a.75.75 0 1 0 1.06-1.06l-1.72-1.72h5.69a.75.75 0 0 0 0-1.5h-5.69l1.72-1.72a.75.75 0 0 0-1.06-1.06l-3 3Z" clipRule="evenodd" />
-                        </svg>
-                    </Button>
-                    {onZoomIn && <Button onClick={onZoomIn} variant="default" className="p-1" tooltipContent="Zoom In">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-6">
-                            <path fillRule="evenodd" d="M10.5 3.75a6.75 6.75 0 1 0 0 13.5 6.75 6.75 0 0 0 0-13.5ZM2.25 10.5a8.25 8.25 0 1 1 14.59 5.28l4.69 4.69a.75.75 0 1 1-1.06 1.06l-4.69-4.69A8.25 8.25 0 0 1 2.25 10.5Zm8.25-3.75a.75.75 0 0 1 .75.75v2.25h2.25a.75.75 0 0 1 0 1.5h-2.25v2.25a.75.75 0 0 1-1.5 0v-2.25H7.5a.75.75 0 0 1 0-1.5h2.25V7.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
-                        </svg>
-                    </Button>}
-                    {onZoomOut && <Button onClick={onZoomOut} variant="default" className="p-1" tooltipContent="Zoom Out">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-6">
-                            <path fillRule="evenodd" d="M10.5 3.75a6.75 6.75 0 1 0 0 13.5 6.75 6.75 0 0 0 0-13.5ZM2.25 10.5a8.25 8.25 0 1 1 14.59 5.28l4.69 4.69a.75.75 0 1 1-1.06 1.06l-4.69-4.69A8.25 8.25 0 0 1 2.25 10.5Zm4.5 0a.75.75 0 0 1 .75-.75h6a.75.75 0 0 1 0 1.5h-6a.75.75 0 0 1-.75-.75Z" clipRule="evenodd" />
-                        </svg>
-                    </Button>}
-                    {onResetTransform && <Button onClick={onResetTransform} variant="default" className="p-1" tooltipContent="Reset View">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-6">
-                            <path fillRule="evenodd" d="M10.5 3.75a6.75 6.75 0 1 0 0 13.5 6.75 6.75 0 0 0 0-13.5ZM2.25 10.5a8.25 8.25 0 1 1 14.59 5.28l4.69 4.69a.75.75 0 1 1-1.06 1.06l-4.69-4.69A8.25 8.25 0 0 1 2.25 10.5Z" clipRule="evenodd" />
-                        </svg>
-                    </Button>}
-                </Container>
+            <Container variant="control-group">
+                <Button variant="back" onClick={onBack} disabled={!isBackEnabled} tooltipContent="Back">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-6">
+                        <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-4.28 9.22a.75.75 0 0 0 0 1.06l3 3a.75.75 0 1 0 1.06-1.06l-1.72-1.72h5.69a.75.75 0 0 0 0-1.5h-5.69l1.72-1.72a.75.75 0 0 0-1.06-1.06l-3 3Z" clipRule="evenodd" />
+                    </svg>
+                </Button>
+                {onZoomIn && <Button onClick={onZoomIn} variant="default" className="p-1" tooltipContent="Zoom In">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-6">
+                        <path fillRule="evenodd" d="M10.5 3.75a6.75 6.75 0 1 0 0 13.5 6.75 6.75 0 0 0 0-13.5ZM2.25 10.5a8.25 8.25 0 1 1 14.59 5.28l4.69 4.69a.75.75 0 1 1-1.06 1.06l-4.69-4.69A8.25 8.25 0 0 1 2.25 10.5Zm8.25-3.75a.75.75 0 0 1 .75.75v2.25h2.25a.75.75 0 0 1 0 1.5h-2.25v2.25a.75.75 0 0 1-1.5 0v-2.25H7.5a.75.75 0 0 1 0-1.5h2.25V7.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
+                    </svg>
+                </Button>}
+                {onZoomOut && <Button onClick={onZoomOut} variant="default" className="p-1" tooltipContent="Zoom Out">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-6">
+                        <path fillRule="evenodd" d="M10.5 3.75a6.75 6.75 0 1 0 0 13.5 6.75 6.75 0 0 0 0-13.5ZM2.25 10.5a8.25 8.25 0 1 1 14.59 5.28l4.69 4.69a.75.75 0 1 1-1.06 1.06l-4.69-4.69A8.25 8.25 0 0 1 2.25 10.5Zm4.5 0a.75.75 0 0 1 .75-.75h6a.75.75 0 0 1 0 1.5h-6a.75.75 0 0 1-.75-.75Z" clipRule="evenodd" />
+                    </svg>
+                </Button>}
+                {onResetTransform && <Button onClick={onResetTransform} variant="default" className="p-1" tooltipContent="Reset View">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-6">
+                        <path fillRule="evenodd" d="M10.5 3.75a6.75 6.75 0 1 0 0 13.5 6.75 6.75 0 0 0 0-13.5ZM2.25 10.5a8.25 8.25 0 1 1 14.59 5.28l4.69 4.69a.75.75 0 1 1-1.06 1.06l-4.69-4.69A8.25 8.25 0 0 1 2.25 10.5Z" clipRule="evenodd" />
+                    </svg>
+                </Button>}
+            </Container>
 
-                <Container variant="control-group">
-                    {isAdminEnabled && (
-                        (editAction === 'changing_root_image')
-                            ? (
-                                <Container variant='default' className='flex items-end gap-2 pl-4 border-l ml-2'> {/* Simple container for this mode */}
-                                    <Container className="flex-grow">
-                                        <Label htmlFor="newRootUrlCtrl" className="block text-xs font-medium text-gray-600 mb-1">
-                                            New Root Image URL:
-                                        </Label>
-                                        <Input
-                                            type="text"
-                                            id="newRootUrlCtrl"
-                                            value={newRootUrlInput}
-                                            // Use onChange handler passed from Mapdraw
-                                            onChange={(e) => onNewRootUrlChange?.(e.target.value)}
-                                            placeholder="Enter new image URL"
-                                            className="block w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm text-xs focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                        />
-                                    </Container>
-                                    {/* Use handlers passed from Mapdraw */}
-                                    <Button onClick={onConfirmChangeRootImage} variant="primary" tooltipContent="Save New URL">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-6">
-                                            <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clipRule="evenodd" />
-                                        </svg>
-                                    </Button>
-                                    <Button onClick={onCancelChangeRootImage} variant="default" tooltipContent="Cancel Change">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-6">
-                                            <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-1.72 6.97a.75.75 0 1 0-1.06 1.06L10.94 12l-1.72 1.72a.75.75 0 1 0 1.06 1.06L12 13.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L13.06 12l1.72-1.72a.75.75 0 1 0-1.06-1.06L12 10.94l-1.72-1.72Z" clipRule="evenodd" />
-                                        </svg>
-                                    </Button>
-                                </Container>
-                            )
-                            : (isEditMode)
-                                ? (
-                                    <EditModeControls
-                                        onToggleEditMode={onToggleEditMode}
-                                        setEditAction={setEditAction}
-                                        editAction={editAction}
+            <Container variant="control-group">
+                {isAdminEnabled && (
+                    (editAction === 'changing_root_image')
+                        ? (
+                            <Container variant='default' className='flex items-end gap-2 pl-4 border-l ml-2'> {/* Simple container for this mode */}
+                                <Container className="flex-grow">
+                                    <Label htmlFor="newRootUrlCtrl" className="block text-xs font-medium text-gray-600 mb-1">
+                                        New Root Image URL:
+                                    </Label>
+                                    <Input
+                                        type="text"
+                                        id="newRootUrlCtrl"
+                                        value={newRootUrlInput}
+                                        // Use onChange handler passed from Mapdraw
+                                        onChange={(e) => onNewRootUrlChange?.(e.target.value)}
+                                        placeholder="Enter new image URL"
+                                        className="block w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm text-xs focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                                     />
-                                )
-                                : (
-                                    <>
-                                        {isCurrentlyOnRootMap && onChangeRootImage && (
-                                            <Button variant="default" onClick={onChangeRootImage} tooltipContent="Change Root Image">
-                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-6">
-                                                    <path d="M12 1.5a.75.75 0 0 1 .75.75V7.5h-1.5V2.25A.75.75 0 0 1 12 1.5ZM11.25 7.5v5.69l-1.72-1.72a.75.75 0 0 0-1.06 1.06l3 3a.75.75 0 0 0 1.06 0l3-3a.75.75 0 1 0-1.06-1.06l-1.72 1.72V7.5h3.75a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3h-9a3 3 0 0 1-3-3v-9a3 3 0 0 1 3-3h3.75Z" />
-                                                </svg>
-                                            </Button>
-                                        )}
-                                        <Button variant="default" onClick={handleImportClick} tooltipContent="Import JSON">
+                                </Container>
+                                {/* Use handlers passed from Mapdraw */}
+                                <Button onClick={onConfirmChangeRootImage} variant="primary" tooltipContent="Save New URL">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-6">
+                                        <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clipRule="evenodd" />
+                                    </svg>
+                                </Button>
+                                <Button onClick={onCancelChangeRootImage} variant="default" tooltipContent="Cancel Change">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-6">
+                                        <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-1.72 6.97a.75.75 0 1 0-1.06 1.06L10.94 12l-1.72 1.72a.75.75 0 1 0 1.06 1.06L12 13.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L13.06 12l1.72-1.72a.75.75 0 1 0-1.06-1.06L12 10.94l-1.72-1.72Z" clipRule="evenodd" />
+                                    </svg>
+                                </Button>
+                            </Container>
+                        )
+                        : (isEditMode)
+                            ? (
+                                <EditModeControls
+                                    onToggleEditMode={onToggleEditMode}
+                                    setEditAction={setEditAction}
+                                    editAction={editAction}
+                                />
+                            )
+                            : (
+                                <>
+                                    {isCurrentlyOnRootMap && onChangeRootImage && (
+                                        <Button variant="default" onClick={onChangeRootImage} tooltipContent="Change Root Image">
                                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-6">
-                                                <path fillRule="evenodd" d="M16.5 3.75a1.5 1.5 0 0 1 1.5 1.5v13.5a1.5 1.5 0 0 1-1.5 1.5h-6a1.5 1.5 0 0 1-1.5-1.5V15a.75.75 0 0 0-1.5 0v3.75a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V5.25a3 3 0 0 0-3-3h-6a3 3 0 0 0-3 3V9A.75.75 0 1 0 9 9V5.25a1.5 1.5 0 0 1 1.5-1.5h6Zm-5.03 4.72a.75.75 0 0 0 0 1.06l1.72 1.72H2.25a.75.75 0 0 0 0 1.5h10.94l-1.72 1.72a.75.75 0 1 0 1.06 1.06l3-3a.75.75 0 0 0 0-1.06l-3-3a.75.75 0 0 0-1.06 0Z" clipRule="evenodd" />
+                                                <path d="M12 1.5a.75.75 0 0 1 .75.75V7.5h-1.5V2.25A.75.75 0 0 1 12 1.5ZM11.25 7.5v5.69l-1.72-1.72a.75.75 0 0 0-1.06 1.06l3 3a.75.75 0 0 0 1.06 0l3-3a.75.75 0 1 0-1.06-1.06l-1.72 1.72V7.5h3.75a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3h-9a3 3 0 0 1-3-3v-9a3 3 0 0 1 3-3h3.75Z" />
                                             </svg>
                                         </Button>
-                                        <NormalModeControls
-                                            onExportJson={onExportJson}
-                                            onToggleEditMode={onToggleEditMode}
-                                        />
-                                    </>
-                                )
-                    )}
-                </Container>
-            </TooltipProvider>
+                                    )}
+                                    <Button variant="default" onClick={handleImportClick} tooltipContent="Import JSON">
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-6">
+                                            <path fillRule="evenodd" d="M16.5 3.75a1.5 1.5 0 0 1 1.5 1.5v13.5a1.5 1.5 0 0 1-1.5 1.5h-6a1.5 1.5 0 0 1-1.5-1.5V15a.75.75 0 0 0-1.5 0v3.75a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V5.25a3 3 0 0 0-3-3h-6a3 3 0 0 0-3 3V9A.75.75 0 1 0 9 9V5.25a1.5 1.5 0 0 1 1.5-1.5h6Zm-5.03 4.72a.75.75 0 0 0 0 1.06l1.72 1.72H2.25a.75.75 0 0 0 0 1.5h10.94l-1.72 1.72a.75.75 0 1 0 1.06 1.06l3-3a.75.75 0 0 0 0-1.06l-3-3a.75.75 0 0 0-1.06 0Z" clipRule="evenodd" />
+                                        </svg>
+                                    </Button>
+                                    <NormalModeControls
+                                        onExportJson={onExportJson}
+                                        onToggleEditMode={onToggleEditMode}
+                                    />
+                                </>
+                            )
+                )}
+            </Container>
         </Container>
     );
 };

@@ -10,6 +10,7 @@ import Label from './components/Label';
 import Input from './components/Input';
 import Form from './components/Form';
 import { useMapNavigation, Hotspot, MapCollection } from './hooks/useMapNavigation';
+import { Provider as TooltipProvider } from '@radix-ui/react-tooltip';
 
 // Define a simpler config type inline or separately
 export interface MapdrawConfig {
@@ -341,124 +342,126 @@ const Mapdraw: React.FC<MapdrawProps> = ({
     // --- Render Logic (Refactored) ---
     return (
         // Use Container for the main wrapper - pass computed className
-        <Container className={containerClasses}>
-            <AppControls
-                onBack={navigateBack}
-                canGoBack={canGoBack}
-                isEditMode={isEditMode}
-                onToggleEditMode={toggleEditMode}
-                onExportJson={handleExportJson}
-                editAction={editAction}
-                setEditAction={setEditAction}
-                onJsonFileSelected={handleFileSelected}
-                onZoomIn={handleZoomIn}
-                onZoomOut={handleZoomOut}
-                onResetTransform={handleResetTransform}
-                isAdminEnabled={isAdminEnabled}
-                isCurrentlyOnRootMap={isCurrentlyOnRootMap}
-                onChangeRootImage={handleInitiateChangeRootImage} // Triggers the mode
-                newRootUrlInput={newRootUrlInput} // Input value state
-                onNewRootUrlChange={setNewRootUrlInput} // Input onChange handler (setter)
-                onConfirmChangeRootImage={handleConfirmChangeRootImage} // Save button handler
-                onCancelChangeRootImage={handleCancelChangeRootImage}
-                onHeightChange={onHeightChange}
-            />
-
-            {/* Display Error Messages using Container */}
-            {error && <Container variant="error-message">Error: {error}</Container>}
-
-            {/* Display Map Viewer */}
-            {currentMapDisplayData && !error && (
-                <MapImageViewer
-                    ref={mapViewerRef}
-                    imageUrl={currentMapDisplayData.imageUrl}
-                    hotspots={currentMapDisplayData.hotspots}
-                    onHotspotClick={handleHotspotClick}
+        <TooltipProvider delayDuration={150}>
+            <Container className={containerClasses}>
+                <AppControls
+                    onBack={navigateBack}
+                    canGoBack={canGoBack}
                     isEditMode={isEditMode}
-                    onHotspotDrawn={handleHotspotDrawn}
+                    onToggleEditMode={toggleEditMode}
+                    onExportJson={handleExportJson}
                     editAction={editAction}
-                    currentMapId={currentMapId}
-                    hotspotToDeleteId={hotspotToDeleteId}
-                    onSelectHotspotForDeletion={handleSelectHotspotForDeletion}
-                    onClearSelection={handleClearDeletionSelection}
-                    onConfirmDeletion={handleConfirmDeletion}
+                    setEditAction={setEditAction}
+                    onJsonFileSelected={handleFileSelected}
+                    onZoomIn={handleZoomIn}
+                    onZoomOut={handleZoomOut}
+                    onResetTransform={handleResetTransform}
+                    isAdminEnabled={isAdminEnabled}
+                    isCurrentlyOnRootMap={isCurrentlyOnRootMap}
+                    onChangeRootImage={handleInitiateChangeRootImage} // Triggers the mode
+                    newRootUrlInput={newRootUrlInput} // Input value state
+                    onNewRootUrlChange={setNewRootUrlInput} // Input onChange handler (setter)
+                    onConfirmChangeRootImage={handleConfirmChangeRootImage} // Save button handler
+                    onCancelChangeRootImage={handleCancelChangeRootImage}
+                    onHeightChange={onHeightChange}
                 />
-            )}
 
-            {/* Display message if map data not available using Container */}
-            {!currentMapDisplayData && !error && (
-                <Container variant="info-message">
-                    Map data is not available...
-                </Container>
-            )}
+                {/* Display Error Messages using Container */}
+                {error && <Container variant="error-message">Error: {error}</Container>}
 
-            {/* Modal using react-modal */}
-            <Modal
-                isOpen={isModalOpen}
-                onRequestClose={handleModalCancel}
-                contentLabel="Add New Hotspot Details" // Updated label
-                className="m-auto bg-white p-6 rounded-lg shadow-xl max-w-md w-11/12 outline-none"
-                overlayClassName="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50"
-            >
-                {/* Use Heading component */}
-                <Heading level={2} className="text-xl font-semibold mb-5 text-gray-800">
-                    Add New Hotspot Details
-                </Heading>
-                <Form onSubmit={handleModalSubmit}>
-                    {pendingGeneratedMapId && (
-                        // Use Container for consistent form grouping (optional)
-                        <Container variant="default" className="mb-4">
-                            <p className="text-sm text-gray-600">
-                                Generated Map ID:
-                                <strong className="ml-2 font-mono select-all bg-gray-100 px-1 py-0.5 rounded">
-                                    {pendingGeneratedMapId}
-                                </strong>
-                            </p>
+                {/* Display Map Viewer */}
+                {currentMapDisplayData && !error && (
+                    <MapImageViewer
+                        ref={mapViewerRef}
+                        imageUrl={currentMapDisplayData.imageUrl}
+                        hotspots={currentMapDisplayData.hotspots}
+                        onHotspotClick={handleHotspotClick}
+                        isEditMode={isEditMode}
+                        onHotspotDrawn={handleHotspotDrawn}
+                        editAction={editAction}
+                        currentMapId={currentMapId}
+                        hotspotToDeleteId={hotspotToDeleteId}
+                        onSelectHotspotForDeletion={handleSelectHotspotForDeletion}
+                        onClearSelection={handleClearDeletionSelection}
+                        onConfirmDeletion={handleConfirmDeletion}
+                    />
+                )}
+
+                {/* Display message if map data not available using Container */}
+                {!currentMapDisplayData && !error && (
+                    <Container variant="info-message">
+                        Map data is not available...
+                    </Container>
+                )}
+
+                {/* Modal using react-modal */}
+                <Modal
+                    isOpen={isModalOpen}
+                    onRequestClose={handleModalCancel}
+                    contentLabel="Add New Hotspot Details" // Updated label
+                    className="m-auto bg-white p-6 rounded-lg shadow-xl max-w-md w-11/12 outline-none"
+                    overlayClassName="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50"
+                >
+                    {/* Use Heading component */}
+                    <Heading level={2} className="text-xl font-semibold mb-5 text-gray-800">
+                        Add New Hotspot Details
+                    </Heading>
+                    <Form onSubmit={handleModalSubmit}>
+                        {pendingGeneratedMapId && (
+                            // Use Container for consistent form grouping (optional)
+                            <Container variant="default" className="mb-4">
+                                <p className="text-sm text-gray-600">
+                                    Generated Map ID:
+                                    <strong className="ml-2 font-mono select-all bg-gray-100 px-1 py-0.5 rounded">
+                                        {pendingGeneratedMapId}
+                                    </strong>
+                                </p>
+                            </Container>
+                        )}
+
+                        {/* Use Container for form group */}
+                        <Container variant="form-group">
+                            {/* Use Label component */}
+                            <Label htmlFor="mapUrl" className="block text-gray-700 text-sm font-medium mb-2">
+                                New Map Image URL:
+                            </Label>
+                            {/* Use Input component */}
+                            <Input
+                                type="text"
+                                id="mapUrl"
+                                value={newMapUrlInput}
+                                onChange={(e) => setNewMapUrlInput(e.target.value)}
+                                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                placeholder="Enter image URL (http://... or /images/...)"
+                                required
+                                autoFocus
+                            />
                         </Container>
-                    )}
 
-                    {/* Use Container for form group */}
-                    <Container variant="form-group">
-                        {/* Use Label component */}
-                        <Label htmlFor="mapUrl" className="block text-gray-700 text-sm font-medium mb-2">
-                            New Map Image URL:
-                        </Label>
-                        {/* Use Input component */}
-                        <Input
-                            type="text"
-                            id="mapUrl"
-                            value={newMapUrlInput}
-                            onChange={(e) => setNewMapUrlInput(e.target.value)}
-                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                            placeholder="Enter image URL (http://... or /images/...)"
-                            required
-                            autoFocus
-                        />
-                    </Container>
-
-                    {/* Use Container for modal actions */}
-                    <Container variant="modal-actions">
-                        {/* Use Button component for modal actions */}
-                        <Button
-                            type="button"
-                            variant="default" // Or a specific 'cancel' variant if you add one
-                            onClick={handleModalCancel}
-                        // Add base classes if needed, or handle in Button component variants
-                        // className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            type="submit"
-                            variant="primary" // Use primary variant
-                        // className="px-4 py-2 bg-indigo-600 text-white rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                        >
-                            Add Hotspot
-                        </Button>
-                    </Container>
-                </Form>
-            </Modal>
-        </Container> // Close the outermost Container
+                        {/* Use Container for modal actions */}
+                        <Container variant="modal-actions">
+                            {/* Use Button component for modal actions */}
+                            <Button
+                                type="button"
+                                variant="default" // Or a specific 'cancel' variant if you add one
+                                onClick={handleModalCancel}
+                            // Add base classes if needed, or handle in Button component variants
+                            // className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="submit"
+                                variant="primary" // Use primary variant
+                            // className="px-4 py-2 bg-indigo-600 text-white rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                            >
+                                Add Hotspot
+                            </Button>
+                        </Container>
+                    </Form>
+                </Modal>
+            </Container> // Close the outermost Container
+        </TooltipProvider>
     );
 };
 

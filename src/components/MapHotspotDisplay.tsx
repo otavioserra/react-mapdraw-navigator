@@ -1,5 +1,6 @@
 // src/components/MapHotspotDisplay.tsx
 import React from 'react';
+import * as Tooltip from '@radix-ui/react-tooltip';
 import { Hotspot, EditAction } from '../hooks/useMapNavigation';
 import Button from './Button';
 import Container from './Container';
@@ -62,34 +63,60 @@ const MapHotspotDisplay: React.FC<MapHotspotDisplayProps> = ({
         onClick(hotspot.id, hotspot.link_to_map_id); // Pass both ID and link
     };
 
+    // Calculate tooltip content dynamically
+    let tooltipText: string;
+    if (isEditMode) {
+        if (editAction === 'selecting_for_deletion') {
+            tooltipText = isSelected ? `Deselect Hotspot: ${hotspot.id}` : `Select to Delete: ${hotspot.id}`;
+        } else {
+            tooltipText = `Hotspot ID: ${hotspot.id} (Links to: ${hotspot.link_to_map_id})`;
+        }
+    } else {
+        tooltipText = `Go to map: ${hotspot.link_to_map_id}`;
+    }
+
     return (
-        <Container
-            key={hotspot.id}
-            className={combinedClasses}
-            style={positionStyle}
-            onClick={handleHotspotClick}
-            title={
-                isEditMode
-                    ? (editAction === 'selecting_for_deletion' ? `Select/Deselect Hotspot ID: ${hotspot.id}` : `Hotspot ID: ${hotspot.id}`)
-                    : `Go to map: ${hotspot.link_to_map_id}`
-            }
-        >
-            {/* Render Delete Button Conditionally */}
-            {isSelected && editAction === 'selecting_for_deletion' && (
-                <Button
-                    variant="no-variant"
-                    onClick={handleDeleteClick}
-                    className="absolute px-3 py-1.5 -top-2 -right-2 w-3 h-6 bg-red-600 hover:bg-red-700 text-amber-50 border-2 border-red-800 rounded-full text-xs font-bold flex items-center justify-center leading-none cursor-pointer z-3 transition-colors duration-200 shadow-md pb-1.5 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-1"
-                    title={`Delete hotspot ${hotspot.id}`}
-                    aria-label={`Delete hotspot ${hotspot.id}`}
+        <Tooltip.Root>
+            <Tooltip.Trigger asChild>
+                <Container
+                    key={hotspot.id}
+                    className={combinedClasses}
+                    style={positionStyle}
+                    onClick={handleHotspotClick}
+                    title={
+                        isEditMode
+                            ? (editAction === 'selecting_for_deletion' ? `Select/Deselect Hotspot ID: ${hotspot.id}` : `Hotspot ID: ${hotspot.id}`)
+                            : `Go to map: ${hotspot.link_to_map_id}`
+                    }
                 >
-                    X
-                </Button>
-            )}
-            {/* Optional: Render hotspot ID - Maybe only if !isSelected? */}
-            {/* {isEditMode && <span className="absolute top-0 left-0 text-[9px] bg-white/70 px-0.5 py-0">{hotspot.id}</span>} */}
-            {/* {!isEditMode && <span className="absolute text-4xl font-bold top-0 left-0 text-[9px] bg-white/70 px-0.5 py-0.5">Click to Open!</span>} */}
-        </Container>
+                    {/* Render Delete Button Conditionally */}
+                    {isSelected && editAction === 'selecting_for_deletion' && (
+                        <Button
+                            variant="no-variant"
+                            onClick={handleDeleteClick}
+                            className="absolute px-3 py-1.5 -top-2 -right-2 w-3 h-6 bg-red-600 hover:bg-red-700 text-amber-50 border-2 border-red-800 rounded-full text-xs font-bold flex items-center justify-center leading-none cursor-pointer z-3 transition-colors duration-200 shadow-md pb-1.5 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-1"
+                            title={`Delete hotspot ${hotspot.id}`}
+                            aria-label={`Delete hotspot ${hotspot.id}`}
+                        >
+                            X
+                        </Button>
+                    )}
+                    {/* Optional: Render hotspot ID - Maybe only if !isSelected? */}
+                    {/* {isEditMode && <span className="absolute top-0 left-0 text-[9px] bg-white/70 px-0.5 py-0">{hotspot.id}</span>} */}
+                    {/* {!isEditMode && <span className="absolute text-4xl font-bold top-0 left-0 text-[9px] bg-white/70 px-0.5 py-0.5">Click to Open!</span>} */}
+                </Container>
+            </Tooltip.Trigger>
+            <Tooltip.Portal>
+                <Tooltip.Content
+                    className="text-xs bg-gray-900 text-white rounded px-2 py-1 shadow-md select-none z-50" // Style for tooltip
+                    sideOffset={5} // Distance from the hotspot
+                    align="center"
+                >
+                    {tooltipText} {/* <<< Use the calculated text */}
+                    <Tooltip.Arrow className="fill-gray-900" />
+                </Tooltip.Content>
+            </Tooltip.Portal>
+        </Tooltip.Root>
     );
 };
 
