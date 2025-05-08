@@ -79,7 +79,7 @@ const MapHotspotDisplay: React.FC<MapHotspotDisplayProps> = ({
                 <Button
                     variant="no-variant"
                     onClick={handleDeleteClick}
-                    className="absolute -top-2 -right-2 w-3 h-6 bg-red-600 hover:bg-red-700 text-white border border-red-800 rounded-full text-xs font-bold flex items-center justify-center leading-none cursor-pointer z-3 transition-colors duration-200 shadow-md pb-1.5 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-1"
+                    className="absolute px-3 py-1.5 -top-2 -right-2 w-3 h-6 bg-red-600 hover:bg-red-700 text-amber-50 border-2 border-red-800 rounded-full text-xs font-bold flex items-center justify-center leading-none cursor-pointer z-3 transition-colors duration-200 shadow-md pb-1.5 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-1"
                     title={`Delete hotspot ${hotspot.id}`}
                     aria-label={`Delete hotspot ${hotspot.id}`}
                 >
