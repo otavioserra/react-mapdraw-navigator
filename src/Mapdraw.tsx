@@ -14,6 +14,7 @@ import { useMapNavigation, Hotspot, MapCollection } from './hooks/useMapNavigati
 // Define a simpler config type inline or separately
 export interface MapdrawConfig {
     isAdminEnabled?: boolean;
+    baseDims?: { width: number; height: number };
 }
 
 interface RelativeRect {

@@ -1,16 +1,22 @@
 // src/contexts/MapInstanceContext.tsx
 import { createContext, useContext } from 'react';
 
+// Define a default fixed canvas size (e.g., common HD resolution)
+export const DEFAULT_CANVAS_WIDTH = 1280;
+export const DEFAULT_CANVAS_HEIGHT = 720;
+
 // Shape of the context data: container dimensions
 interface MapInstanceContextType {
     containerDims: { width: number; height: number } | null;
     controlsHeight: number | null;
+    baseDims: { width: number; height: number };
 }
 
-// Create context with a default value
+// Create context with default values
 const MapInstanceContext = createContext<MapInstanceContextType>({
     containerDims: null,
     controlsHeight: null,
+    baseDims: { width: DEFAULT_CANVAS_WIDTH, height: DEFAULT_CANVAS_HEIGHT },
 });
 
 // Custom hook for easy consumption

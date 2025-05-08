@@ -6,13 +6,19 @@ import MapHotspotDisplay from './MapHotspotDisplay';
 import Container from './Container';
 import LoadingIndicator from './LoadingIndicator';
 import { TransformWrapper, TransformComponent, ReactZoomPanPinchRef } from "react-zoom-pan-pinch";
-import { useMapInstanceContext } from '../contexts/MapInstanceContext';
+import { useMapInstanceContext, DEFAULT_CANVAS_WIDTH, DEFAULT_CANVAS_HEIGHT } from '../contexts/MapInstanceContext';
 
 // Handle type definition
 export interface MapImageViewerRefHandle {
     doZoomIn: (step?: number, animationTime?: number) => void;
     doZoomOut: (step?: number, animationTime?: number) => void;
     doResetTransform: (animationTime?: number) => void;
+}
+
+interface TransformData {
+    scale: number;
+    x: number;
+    y: number;
 }
 
 // Define types for coordinates and rectangles used internally
@@ -61,25 +67,31 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
     const [startCoords, setStartCoords] = useState<Coords | null>(null);
     const [currentScale, setCurrentScale] = useState(1);
     const [currentRect, setCurrentRect] = useState<Rect | null>(null);
-    const [imageOriginalDims, setImageOriginalDims] = useState<{ width: number; height: number } | null>(null);
     const [currentPosX, setCurrentPosX] = useState(0);
     const [currentPosY, setCurrentPosY] = useState(0);
     const [isImageLoading, setIsImageLoading] = useState<boolean>(true);
+    const [containerCanvaStyle, setContainerCanvaStyle] = useState<React.CSSProperties | undefined>(undefined);
+    const [transformData, setTransformData] = useState<TransformData>({ scale: 1, x: 0, y: 0 });
 
-    const { containerDims, controlsHeight } = useMapInstanceContext();
+    const { containerDims, controlsHeight, baseDims } = useMapInstanceContext();
+
+    const canvasWidth = baseDims?.width ?? DEFAULT_CANVAS_WIDTH;
+    const canvasHeight = baseDims?.height ?? DEFAULT_CANVAS_HEIGHT;
 
     // Refs
     const containerRef = useRef<HTMLDivElement>(null);
+    const containerCanvaRef = useRef<HTMLDivElement>(null);
     const imgRef = useRef<HTMLImageElement>(null);
     const transformWrapperRef = useRef<ReactZoomPanPinchRef>(null);
 
     // Helper Function to get Mouse Coordinates Relative to Container
     const getRelativeCoords = (event: MouseEvent<HTMLDivElement>): Coords | null => {
 
-        if (!containerRef.current) return null;
-        const rect = containerRef.current.getBoundingClientRect();
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
+        if (!containerCanvaRef.current) return null;
+        const rectCanva = containerCanvaRef.current.getBoundingClientRect();
+
+        const x = (event.clientX - rectCanva.left);
+        const y = (event.clientY - rectCanva.top);
 
         return { x, y };
     };
@@ -103,7 +115,7 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
 
         const currentRelativeCoords = getRelativeCoords(event);
 
-        if (!currentRelativeCoords || !containerRef.current) return;
+        if (!currentRelativeCoords) return;
 
         const startRelativeX = startCoords.x;
         const startRelativeY = startCoords.y;
@@ -128,40 +140,30 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
 
         setIsDrawing(false);
 
-        if (containerRef.current && currentRect.width > 1 && currentRect.height > 1) {
+        if (containerCanvaRef.current && currentRect.width > 1 && currentRect.height > 1) {
 
             // Use transform state variables updated by onTransformed callback
             const scale = currentScale;
             const positionX = currentPosX;
             const positionY = currentPosY;
 
-            // Use image dimensions from state updated by onLoad (Recommended) OR fallback to ref access (ensure imageOriginalDims state exists if using)
-            let imageNaturalWidth = imageOriginalDims?.width ?? imgRef.current?.naturalWidth;
-            let imageNaturalHeight = imageOriginalDims?.height ?? imgRef.current?.naturalHeight;
+            const drawnRectOnImageX = (currentRect.x - positionX) / scale;
+            const drawnRectOnImageY = (currentRect.y - positionY) / scale;
+            const drawnRectOnImageWidth = currentRect.width / scale;
+            const drawnRectOnImageHeight = (currentRect.height) / scale;
 
-            if (!imageNaturalWidth || !imageNaturalHeight || imageNaturalWidth === 0 || imageNaturalHeight === 0) {
-                console.error("Cannot calculate hotspot: Image dimensions not loaded or invalid.");
+            if (canvasWidth === 0 || canvasHeight === 0) {
+                console.error("Canvas dimensions are zero. Cannot calculate relative hotspot.");
                 setStartCoords(null);
                 setCurrentRect(null);
                 return;
             }
 
-            // Offset apply correction
-            imageNaturalWidth = imageNaturalWidth * (containerRef.current.offsetWidth / imageNaturalWidth);
-            imageNaturalHeight = imageNaturalHeight * (containerRef.current.offsetHeight / imageNaturalHeight);
-
-            // Convert container-relative pixel coordinates (currentRect)
-            const imageX = (currentRect.x - positionX) / scale;
-            const imageY = (currentRect.y - positionY) / scale;
-            const imageWidth = currentRect.width / scale;
-            const imageHeight = currentRect.height / scale;
-
-            // Calculate percentage relative to the image's natural dimensions
             let relativeRect: Rect = {
-                x: (imageX / imageNaturalWidth) * 100,
-                y: (imageY / imageNaturalHeight) * 100,
-                width: (imageWidth / imageNaturalWidth) * 100,
-                height: (imageHeight / imageNaturalHeight) * 100,
+                x: (drawnRectOnImageX / canvasWidth) * 100,
+                y: (drawnRectOnImageY / canvasHeight) * 100,
+                width: (drawnRectOnImageWidth / canvasWidth) * 100,
+                height: (drawnRectOnImageHeight / canvasHeight) * 100,
             };
 
             // Clamp percentage values
@@ -177,15 +179,6 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
         setCurrentRect(null);
     };
 
-    const handleImageLoad = (event: React.SyntheticEvent<HTMLImageElement>) => {
-        const { naturalWidth, naturalHeight } = event.currentTarget;
-        if (naturalWidth > 0 && naturalHeight > 0) {
-            setImageOriginalDims({ width: naturalWidth, height: naturalHeight });
-        } else {
-            setImageOriginalDims(null);
-        }
-    };
-
     const handleHotspotInteraction = (hotspotId: string, linkToMapId: string) => {
         if (isEditMode && editAction === 'selecting_for_deletion') {
             onSelectHotspotForDeletion(hotspotId);
@@ -195,7 +188,7 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
     };
 
     const handleContainerClick = (e: MouseEvent<HTMLDivElement>) => {
-        if (editAction === 'selecting_for_deletion' && e.target === containerRef.current) {
+        if (editAction === 'selecting_for_deletion' && e.target === containerCanvaRef.current) {
             onClearSelection();
         }
     };
@@ -207,20 +200,56 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
     }, []);
 
     useEffect(() => {
-        setImageOriginalDims(null);
         setIsImageLoading(true);
 
         const timerId = setTimeout(() => {
+            if (!containerCanvaRef.current || !containerRef.current) return null;
+            const rectCanva = containerCanvaRef.current.getBoundingClientRect();
+            const container = containerRef.current.getBoundingClientRect();
+
+            let scale = 1;
+            let x = 0;
+            let y = 0;
+
+            if (container.width > canvasWidth && container.height > canvasHeight) {
+                scale = 1;
+                x = rectCanva.left < 0 ? (-1) * rectCanva.left / 2 : 0;
+                y = rectCanva.top < 0 ? (-1) * rectCanva.top / 2 : 0;
+            } else {
+                const percWidth = container.width / canvasWidth;
+                const percHeight = container.height / canvasHeight;
+
+                scale = percWidth < percHeight ? percWidth : percHeight;
+
+                x = ((canvasWidth - container.width) / 2) + (container.width - canvasWidth * scale) / 2;
+                y = ((canvasHeight - container.height) / 2) + (container.height - canvasHeight * scale) / 2;
+            }
+
             const wrapperRefCurrent = transformWrapperRef.current;
             if (wrapperRefCurrent?.setTransform) {
-                wrapperRefCurrent.setTransform(0, 0, 1, 0); // x=0, y=0, scale=1, animationTime=0
+                wrapperRefCurrent.setTransform(x, y, scale, 0); // x=0, y=0, scale=1, animationTime=0
             }
+            setTransformData({ scale, x, y });
             setIsImageLoading(false);
-        }, 250);
+        }, 550);
 
         return () => clearTimeout(timerId);
 
     }, [currentMapId]);
+
+    useEffect(() => {
+        if (!containerRef.current) return;
+        const container = containerRef.current.getBoundingClientRect();
+
+        const canvaStyle: React.CSSProperties = {
+            left: (container.width > canvasWidth ? `${(-1) * (canvasWidth - container.width) / 2}px` : `${(container.width - canvasWidth) / 2}px`),
+            top: (container.height > canvasHeight ? `${(-1) * (canvasHeight - container.height) / 2}px` : `${(container.height - canvasHeight) / 2}px`),
+            width: `${canvasWidth}px`,
+            height: `${canvasHeight}px`,
+        };
+
+        setContainerCanvaStyle(canvaStyle);
+    }, [containerDims, controlsHeight, canvasWidth, canvasHeight]);
 
     useImperativeHandle(ref, () => ({
         doZoomIn(step = 0.5, animationTime = 150) {
@@ -230,17 +259,23 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
             transformWrapperRef.current?.zoomOut(step, animationTime);
         },
         doResetTransform(animationTime = 150) {
-            transformWrapperRef.current?.resetTransform(animationTime);
+            const { scale, x, y } = transformData ?? { scale: 1, x: 0, y: 0 };
+            if (!transformWrapperRef.current) return;
+            transformWrapperRef.current?.setTransform(x, y, scale, animationTime);
         }
-    }), []);
+    }), [transformData]);
 
     // Dynamic Classes & Styles Calculation
     const containerClasses = classNames(
-        "block overflow-hidden",
+        "rmn-container-map block overflow-hidden bg-gray-200",
         {
             'cursor-crosshair': isEditMode && editAction === 'adding',
             'cursor-move': !isEditMode,
         }
+    );
+
+    const containerCanvaClasses = classNames(
+        "rmn-container-canva absolute",
     );
 
     const containerStyle: React.CSSProperties = {
@@ -249,6 +284,14 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
         top: (controlsHeight ?? 0) + 'px',
         width: containerDims?.width ? `${containerDims.width}px` : '100%',
         height: containerDims?.height ? `${(containerDims.height - (controlsHeight ?? 0))}px` : '100%',
+    };
+
+    const containerTransForm: React.CSSProperties = {
+        position: 'absolute',
+        left: '0',
+        top: '0',
+        width: '100%',
+        height: '100%',
     };
 
     const imageClasses = classNames(
@@ -273,72 +316,80 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
                 controlsHeight={controlsHeight}
             />
 
-            <TransformWrapper
-                ref={transformWrapperRef}
-                initialScale={1}
-                initialPositionX={0}
-                initialPositionY={0}
-                minScale={0.3}
-                maxScale={9}
-                limitToBounds={false}
-                doubleClick={{ disabled: true }}
-                onTransformed={handleTransformed}
-                disabled={isEditMode && (editAction === 'adding' || editAction === 'selecting_for_deletion')}
+            <Container
+                ref={containerCanvaRef}
+                className={containerCanvaClasses}
+                style={containerCanvaStyle}
             >
-                {() => (
-                    <React.Fragment>
-                        <TransformComponent
-                            wrapperStyle={{ width: "100%", height: "100%", position: 'relative' }}
-                            contentStyle={{ width: "100%", height: "100%" }}
-                        >
-                            <img
-                                ref={imgRef}
-                                src={imageUrl}
-                                alt="Map Diagram"
-                                className={imageClasses}
-                                onLoad={handleImageLoad}
-                            />
 
-                            {hotspots.map((hotspot) => (
-                                <MapHotspotDisplay
-                                    key={hotspot.id}
-                                    hotspot={hotspot}
-                                    isEditMode={isEditMode}
-                                    editAction={editAction}
-                                    isSelected={hotspot.id === hotspotToDeleteId}
-                                    onClick={handleHotspotInteraction}
-                                    onDeleteClick={onConfirmDeletion}
+                <TransformWrapper
+                    ref={transformWrapperRef}
+                    initialScale={1}
+                    initialPositionX={0}
+                    initialPositionY={0}
+                    minScale={0.3}
+                    maxScale={4}
+                    limitToBounds={false}
+                    doubleClick={{ disabled: true }}
+                    onTransformed={handleTransformed}
+                    disabled={isEditMode && (editAction === 'adding' || editAction === 'selecting_for_deletion')}
+                >
+                    {() => (
+                        <React.Fragment>
+                            <TransformComponent
+                                wrapperStyle={containerTransForm}
+                                contentStyle={containerTransForm}
+                            >
+
+                                <img
+                                    ref={imgRef}
+                                    src={imageUrl}
+                                    alt="Map Diagram"
+                                    className={imageClasses}
                                 />
-                            ))}
 
-                            {isEditMode && editAction === 'adding' && (
-                                <div
-                                    className="absolute inset-0 z-[4] cursor-crosshair"
-                                    onMouseDown={handleMouseDown}
-                                    onMouseMove={handleMouseMove}
-                                    onMouseUp={handleMouseUp}
-                                    onMouseLeave={handleMouseUp}
-                                />
-                            )}
-                        </TransformComponent>
-                    </React.Fragment>
-                )}
-            </TransformWrapper>
+                                {hotspots.map((hotspot) => (
+                                    <MapHotspotDisplay
+                                        key={hotspot.id}
+                                        hotspot={hotspot}
+                                        isEditMode={isEditMode}
+                                        editAction={editAction}
+                                        isSelected={hotspot.id === hotspotToDeleteId}
+                                        onClick={handleHotspotInteraction}
+                                        onDeleteClick={onConfirmDeletion}
+                                    />
+                                ))}
 
-            {
-                isDrawing && currentRect && editAction === 'adding' && (
-                    <div
-                        className={drawingRectClasses}
-                        style={{
-                            left: `${currentRect.x}px`,
-                            top: `${currentRect.y}px`,
-                            width: `${currentRect.width}px`,
-                            height: `${currentRect.height}px`,
-                        }}
-                    />
-                )
-            }
-        </Container>
+                                {isEditMode && editAction === 'adding' && (
+                                    <div
+                                        className="absolute inset-0 z-[4] cursor-crosshair"
+                                        onMouseDown={handleMouseDown}
+                                        onMouseMove={handleMouseMove}
+                                        onMouseUp={handleMouseUp}
+                                        onMouseLeave={handleMouseUp}
+                                    />
+                                )}
+                            </TransformComponent>
+                        </React.Fragment>
+                    )}
+                </TransformWrapper>
+
+                {
+                    isDrawing && currentRect && editAction === 'adding' && (
+                        <div
+                            className={drawingRectClasses}
+                            style={{
+                                left: `${currentRect.x}px`,
+                                top: `${currentRect.y}px`,
+                                width: `${currentRect.width}px`,
+                                height: `${currentRect.height}px`,
+                            }}
+                        />
+                    )
+                }
+
+            </Container>
+        </Container >
     );
 });
 

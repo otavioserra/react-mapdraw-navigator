@@ -4,6 +4,7 @@ import ReactDOM from 'react-dom/client';
 import Modal from 'react-modal';
 import MapdrawInstanceWrapper from './MapdrawInstanceWrapper';
 import './index.css';
+import { DEFAULT_CANVAS_HEIGHT, DEFAULT_CANVAS_WIDTH } from './contexts/MapInstanceContext';
 
 // Set the app element for modal accessibility (using the original #root)
 // This is important even if App isn't rendered directly into #root anymore,
@@ -54,8 +55,11 @@ if (mapContainers.length === 0) {
             }
 
             // --- Config defined ---
+            const baseWidth = parseInt(containerElement.dataset.baseWidth || '', 10) || DEFAULT_CANVAS_WIDTH;
+            const baseHeight = parseInt(containerElement.dataset.baseHeight || '', 10) || DEFAULT_CANVAS_HEIGHT;
             const config = {
-                isAdminEnabled: containerElement.dataset.enableAdmin === 'true'
+                isAdminEnabled: containerElement.dataset.enableAdmin === 'true',
+                baseDims: { width: baseWidth, height: baseHeight }
             };
 
             // --- Render and start MapdrawInstanceWrapper ---

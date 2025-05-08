@@ -53,11 +53,8 @@ const MapHotspotDisplay: React.FC<MapHotspotDisplayProps> = ({
     };
 
     const handleDeleteClick = (e: React.MouseEvent) => {
-        e.stopPropagation(); // Prevent hotspot onClick
-        // Add confirmation dialog?
-        // if (window.confirm(`Delete hotspot ${hotspot.id}?`)) {
+        e.stopPropagation();
         onDeleteClick(hotspot.id);
-        // }
     };
 
     const handleHotspotClick = (e: React.MouseEvent) => {

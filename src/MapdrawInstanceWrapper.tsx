@@ -1,7 +1,7 @@
 // src/MapdrawInstanceWrapper.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import Mapdraw, { MapdrawConfig } from './Mapdraw';
-import { MapInstanceContextProvider } from './contexts/MapInstanceContext';
+import { MapInstanceContextProvider, DEFAULT_CANVAS_WIDTH, DEFAULT_CANVAS_HEIGHT } from './contexts/MapInstanceContext';
 
 interface MapdrawInstanceWrapperProps {
     // Receives the actual DOM element where Mapdraw should be rendered
@@ -31,8 +31,12 @@ const MapdrawInstanceWrapper: React.FC<MapdrawInstanceWrapperProps> = ({
         const updateDimensions = () => {
             // Use functional update for safety with observer callback timing
             setCurrentContainerDims(prevDims => {
-                const newWidth = observedElement.offsetWidth;
-                const newHeight = observedElement.offsetHeight;
+                const rect = observedElement.getBoundingClientRect();
+                const style = window.getComputedStyle(observedElement);
+
+                const newWidth = rect.width - parseFloat(style.borderLeftWidth) - parseFloat(style.borderRightWidth) - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+                const newHeight = rect.height - parseFloat(style.borderTopWidth) - parseFloat(style.borderBottomWidth) - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+
                 if (prevDims?.width !== newWidth || prevDims?.height !== newHeight) {
                     return { width: newWidth, height: newHeight };
                 }
@@ -61,9 +65,12 @@ const MapdrawInstanceWrapper: React.FC<MapdrawInstanceWrapperProps> = ({
     }, []);
 
     // Prepare context value
+    const baseDims = config?.baseDims ?? { width: DEFAULT_CANVAS_WIDTH, height: DEFAULT_CANVAS_HEIGHT };
+
     const contextValue = {
         containerDims: currentContainerDims,
-        controlsHeight: currentControlsHeight
+        controlsHeight: currentControlsHeight,
+        baseDims: baseDims
     };
 
     // Render the actual Mapdraw wrapped in the provider
