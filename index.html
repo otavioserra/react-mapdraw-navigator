@@ -3,17 +3,19 @@
 
 <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>React Mapdraw Navigator</title>
 </head>
 
 <body>
-    <div class="react-mapdraw-navigator border-4 w-[calc(100% - 18px)] h-[700px] border-gray-300 m-5 bg-white hidden overflow-hidden"
-        data-mapdraw-root-id="rootMap" data-enable-admin="true">
+    <h3 class="text-2xl font-bold dark:text-white mb-2"><span
+            class="text-transparent bg-clip-text bg-gradient-to-r to-emerald-600 from-sky-400">Public Version:</span>
+    </h3>
+    <div class="react-mapdraw-navigator border-4 w-[calc(100% - 8px)] h-[600px] border-gray-300 bg-white hidden overflow-hidden"
+        data-mapdraw-root-id="rootMap" data-enable-admin="false">
         {
         "rootMap": {
-        "imageUrl": "/images/maps/root.png",
+        "imageUrl": "./images/maps/root.png",
         "hotspots": [
         {
         "id": "root_spot1",
@@ -50,7 +52,7 @@
         ]
         },
         "childMapA": {
-        "imageUrl": "/images/maps/childA.png",
+        "imageUrl": "./images/maps/childA.png",
         "hotspots": [
         {
         "id": "childA_spot1",
@@ -63,11 +65,11 @@
         ]
         },
         "childMapB": {
-        "imageUrl": "/images/maps/childB.svg",
+        "imageUrl": "./images/maps/childB.svg",
         "hotspots": []
         },
         "grandchildMapX": {
-        "imageUrl": "/images/maps/grandchildX.jpg",
+        "imageUrl": "./images/maps/grandchildX.jpg",
         "hotspots": []
         },
         "map_m9vq06ycw88": {
@@ -93,15 +95,15 @@
         }
         }
     </div>
-
-    <!--<div class="react-mapdraw-navigator w-[100%]  h-[610px] border mb-5 border-gray-300 hidden"
+    <h3 class="text-2xl font-bold dark:text-white mt-5 mb-2"><span
+            class="text-transparent bg-clip-text bg-gradient-to-r to-emerald-600 from-sky-400">Admin Version:</span>
+    </h3>
+    <div class="react-mapdraw-navigator border-4 w-[calc(100% - 8px)] h-[600px] border-gray-300 bg-white hidden overflow-hidden"
         data-mapdraw-root-id="start" data-enable-admin="true">
         {
-        "start": { "imageUrl": "/images/maps/root.png", "hotspots": [] }
+        "start": { "imageUrl": "./images/maps/root.png", "hotspots": [] }
         }
     </div>
-
-    <div class="react-mapdraw-navigator w-[100%] h-[610px] border border-gray-300 hidden"></div>-->
 
     <script type="module" src="/src/main.tsx"></script>
 </body>
