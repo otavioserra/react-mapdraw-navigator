@@ -25,36 +25,75 @@ if (mapContainers.length === 0) {
 } else {
     console.log(`Found ${mapContainers.length} Mapdraw instance(s) (using class 'react-mapdraw-navigator') to initialize.`);
 
-    // Iterate over each container and render a MapdrawInstanceWrapper instance
-    mapContainers.forEach((containerElement, index) => {
-        if (!containerElement.dataset.reactMapdrawInitialized) {
-            console.log(`Initializing Mapdraw instance ${index}...`);
-            containerElement.dataset.reactMapdrawInitialized = 'true';
+    // Add Map to temporarily store props for each element
+    const elementPropsMap = new Map<Element, {
+        rootMapId: string;
+        initialDataJsonString?: string;
+        config: { isAdminEnabled: boolean; baseDims: { width: number; height: number } };
+    }>();
 
-            // --- Read Initial Config Once ---
+    // Define the Intersection Observer callback function
+    const handleIntersection = (entries: IntersectionObserverEntry[], observer: IntersectionObserver) => {
+        entries.forEach(entry => {
+            const containerElement = entry.target as HTMLDivElement; // Cast element type
+
+            // Check if the element is intersecting (visible) AND not already initialized
+            if (entry.isIntersecting && !containerElement.dataset.reactMapdrawInitialized) {
+                console.log("Element is visible, initializing React Mapdraw instance...");
+
+                // Mark as initialized
+                containerElement.dataset.reactMapdrawInitialized = 'true';
+
+                // Retrieve stored props
+                const props = elementPropsMap.get(containerElement);
+
+                if (props) {
+                    // Keep the React rendering logic
+                    const root = ReactDOM.createRoot(containerElement);
+                    root.render(
+                        <React.StrictMode>
+                            <MapdrawInstanceWrapper
+                                containerElement={containerElement} // Pass element itself to wrapper
+                                rootMapId={props.rootMapId}
+                                initialDataJsonString={props.initialDataJsonString}
+                                config={props.config}
+                            />
+                        </React.StrictMode>
+                    );
+                    console.log("React Mapdraw instance initialized.");
+                } else {
+                    console.error("Could not find props for containerElement in map.");
+                }
+
+                // Stop observing this element once initialized
+                observer.unobserve(containerElement);
+                elementPropsMap.delete(containerElement); // Clean up map entry
+            }
+        });
+    };
+
+    // Create the Intersection Observer instance
+    const observer = new IntersectionObserver(handleIntersection, {
+        root: null, // Observe intersection with viewport
+        rootMargin: '0px',
+        threshold: 0.1 // Trigger when 10% is visible (adjust if needed)
+    });
+
+    // Iterate over containers, store props, and start observing
+    mapContainers.forEach((containerElement, index) => {
+        // Only process elements not already marked (e.g., by previous script runs)
+        if (!containerElement.dataset.elementInitialized) {
+            containerElement.dataset.elementInitialized = 'true';
+            // --- Add ID dynamically ---
+            const elementId = `react-mapdraw-navigator-${index + 1}`;
+            containerElement.id = elementId;
+
+            // --- Read initial data/config needed by Wrapper ---
             const DEFAULT_ROOT_MAP_ID = 'rootMap';
             let rootMapId: string = DEFAULT_ROOT_MAP_ID;
+            let initialDataJsonString: string | undefined = undefined;
             const rootIdOverride = containerElement.dataset.mapdrawRootId;
-
-            // --- Read Initial embedded JSON ---
-            let initialJsonDataString: string | undefined = undefined;
-            const jsonContent = containerElement.textContent?.trim();
-
-            if (rootIdOverride) { rootMapId = rootIdOverride; }
-            if (jsonContent && jsonContent.length > 0) {
-                try {
-                    const parsedData = JSON.parse(jsonContent);
-                    if (typeof parsedData === 'object' && parsedData !== null && Object.keys(parsedData).length > 0) {
-                        initialJsonDataString = jsonContent;
-                        if (!rootIdOverride) {
-                            const firstKey = Object.keys(parsedData)[0];
-                            if (firstKey) { rootMapId = firstKey; }
-                        }
-                    }
-                } catch (e) { console.error("Wrapper: Failed to parse JSON.", e); }
-            }
-
-            // --- Config defined ---
+            const jsonContent = containerElement.textContent?.trim(); // Read BEFORE potentially clearing
             const baseWidth = parseInt(containerElement.dataset.baseWidth || '', 10) || DEFAULT_CANVAS_WIDTH;
             const baseHeight = parseInt(containerElement.dataset.baseHeight || '', 10) || DEFAULT_CANVAS_HEIGHT;
             const config = {
@@ -62,20 +101,31 @@ if (mapContainers.length === 0) {
                 baseDims: { width: baseWidth, height: baseHeight }
             };
 
-            // --- Render and start MapdrawInstanceWrapper ---
+            if (rootIdOverride) { rootMapId = rootIdOverride; }
+            if (jsonContent && jsonContent.length > 0) { /* ... parse json ... */
+                try {
+                    const parsedData = JSON.parse(jsonContent);
+                    if (typeof parsedData === 'object' && parsedData !== null && Object.keys(parsedData).length > 0) {
+                        initialDataJsonString = jsonContent;
+                        if (!rootIdOverride) {
+                            const firstKey = Object.keys(parsedData)[0];
+                            if (firstKey) { rootMapId = firstKey; }
+                        }
+                    }
+                } catch (e) { console.error("Failed to parse JSON in observer setup.", e); }
+            }
+            // --- End reading data ---
+
+            // Clean div content and remove hidden to start.
             containerElement.textContent = '';
             containerElement.classList.remove('hidden');
-            const root = ReactDOM.createRoot(containerElement);
-            root.render(
-                <React.StrictMode>
-                    <MapdrawInstanceWrapper
-                        containerElement={containerElement}
-                        rootMapId={rootMapId}
-                        initialDataJsonString={initialJsonDataString}
-                        config={config}
-                    />
-                </React.StrictMode>
-            );
+
+            // Store the props needed for rendering later
+            elementPropsMap.set(containerElement, { rootMapId, initialDataJsonString, config });
+
+            // Start observing the element
+            observer.observe(containerElement);
+            console.log("Observing container element:", elementId);
         }
     });
 }
