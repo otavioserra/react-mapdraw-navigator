@@ -4,6 +4,7 @@ import * as Tooltip from '@radix-ui/react-tooltip';
 import { Hotspot, EditAction } from '../hooks/useMapNavigation';
 import Button from './Button';
 import Container from './Container';
+import { useMapInstanceContext } from '../contexts/MapInstanceContext';
 
 interface MapHotspotDisplayProps {
     hotspot: Hotspot;
@@ -22,6 +23,7 @@ const MapHotspotDisplay: React.FC<MapHotspotDisplayProps> = ({
     onClick,
     onDeleteClick,
 }) => {
+    const { rootContainerElement } = useMapInstanceContext();
 
     // --- Calculate Tailwind Classes based on state ---
     const baseClasses = "absolute box-border transition-colors transition-shadow duration-200 ease-in-out z-[1]"; // Base styles + z-index 1
@@ -106,7 +108,7 @@ const MapHotspotDisplay: React.FC<MapHotspotDisplayProps> = ({
                     {/* {!isEditMode && <span className="absolute text-4xl font-bold top-0 left-0 text-[9px] bg-white/70 px-0.5 py-0.5">Click to Open!</span>} */}
                 </Container>
             </Tooltip.Trigger>
-            <Tooltip.Portal>
+            <Tooltip.Portal container={rootContainerElement || undefined}>
                 <Tooltip.Content
                     className="text-xs bg-gray-900 text-white rounded px-2 py-1 shadow-md select-none z-50" // Style for tooltip
                     sideOffset={5} // Distance from the hotspot

@@ -11,6 +11,7 @@ import Input from './components/Input';
 import Form from './components/Form';
 import { useMapNavigation, Hotspot, MapCollection } from './hooks/useMapNavigation';
 import { Provider as TooltipProvider } from '@radix-ui/react-tooltip';
+import { useMapInstanceContext } from './contexts/MapInstanceContext';
 
 // Define a simpler config type inline or separately
 export interface MapdrawConfig {
@@ -33,7 +34,6 @@ interface MapdrawProps {
     onHeightChange?: (height: number) => void;
     isFullscreenActive?: boolean;
     onToggleFullscreen?: () => void;
-    containerElement?: HTMLDivElement | null;
 }
 
 const generateUniqueIdPart = () => Date.now().toString(36) + Math.random().toString(36).substring(2, 5);
@@ -45,8 +45,7 @@ const Mapdraw: React.FC<MapdrawProps> = ({
     config,
     onHeightChange,
     isFullscreenActive,
-    onToggleFullscreen,
-    containerElement
+    onToggleFullscreen
 }) => {
     const {
         currentMapId,
@@ -62,6 +61,8 @@ const Mapdraw: React.FC<MapdrawProps> = ({
         deleteHotspot,
         loadNewMapData
     } = useMapNavigation(rootMapId, initialDataJsonString);
+
+    const { rootContainerElement } = useMapInstanceContext();
 
     // --- Component State ---
     const [isEditMode, setIsEditMode] = useState<boolean>(false);
@@ -410,7 +411,7 @@ const Mapdraw: React.FC<MapdrawProps> = ({
                     contentLabel="Add New Hotspot Details" // Updated label
                     className="m-auto bg-white p-6 rounded-lg shadow-xl max-w-md w-11/12 outline-none"
                     overlayClassName="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50"
-                    parentSelector={() => containerElement || document.body}
+                    parentSelector={() => rootContainerElement || document.body}
                 >
                     {/* Use Heading component */}
                     <Heading level={2} className="text-xl font-semibold mb-5 text-gray-800">

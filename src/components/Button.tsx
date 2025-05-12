@@ -1,6 +1,7 @@
 // src/components/Button.tsx
 import React from 'react';
 import * as Tooltip from '@radix-ui/react-tooltip';
+import { useMapInstanceContext } from '../contexts/MapInstanceContext';
 
 // Defines the style variants our button can have
 type ButtonVariant = 'default' | 'primary' | 'add' | 'remove' | 'toggle-on' | 'toggle-off' | 'export' | 'back' | 'disabled' | 'no-variant';
@@ -24,7 +25,7 @@ const Button: React.FC<ButtonProps> = ({
     tooltipContent, // Optional tooltip content
     ...props // Pass down other native button props (like 'type')
 }) => {
-
+    const { rootContainerElement } = useMapInstanceContext();
     // --- Style Logic Based on Variant (Tailwind Example) ---
     // Adapt this if using inline styles or CSS Modules
 
@@ -69,7 +70,7 @@ const Button: React.FC<ButtonProps> = ({
                 <Tooltip.Trigger asChild>
                     {buttonElement}
                 </Tooltip.Trigger>
-                <Tooltip.Portal>
+                <Tooltip.Portal container={rootContainerElement || undefined}>
                     <Tooltip.Content
                         className="text-xs bg-gray-900 text-white rounded px-2 py-1 shadow-md select-none z-50" // Added higher z-index
                         sideOffset={5}

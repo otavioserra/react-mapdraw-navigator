@@ -119,7 +119,8 @@ const MapdrawInstanceWrapper: React.FC<MapdrawInstanceWrapperProps> = ({
     const contextValue = {
         containerDims: currentContainerDims,
         controlsHeight: currentControlsHeight,
-        baseDims: baseDims
+        baseDims: baseDims,
+        rootContainerElement: containerElement,
     };
 
     // Render the actual Mapdraw wrapped in the provider
@@ -132,7 +133,6 @@ const MapdrawInstanceWrapper: React.FC<MapdrawInstanceWrapperProps> = ({
                 onHeightChange={handleControlsHeightChange}
                 isFullscreenActive={isFullscreenActive}
                 onToggleFullscreen={handleToggleFullscreen}
-                containerElement={containerElement}
             />
         </MapInstanceContextProvider>
     );

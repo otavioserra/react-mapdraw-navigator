@@ -10,6 +10,7 @@ interface MapInstanceContextType {
     containerDims: { width: number; height: number } | null;
     controlsHeight: number | null;
     baseDims: { width: number; height: number };
+    rootContainerElement: HTMLDivElement | null;
 }
 
 // Create context with default values
@@ -17,6 +18,7 @@ const MapInstanceContext = createContext<MapInstanceContextType>({
     containerDims: null,
     controlsHeight: null,
     baseDims: { width: DEFAULT_CANVAS_WIDTH, height: DEFAULT_CANVAS_HEIGHT },
+    rootContainerElement: null,
 });
 
 // Custom hook for easy consumption
