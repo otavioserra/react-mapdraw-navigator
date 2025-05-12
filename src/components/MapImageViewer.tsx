@@ -47,6 +47,7 @@ interface MapImageViewerProps {
     onSelectHotspotForDeletion: (hotspotId: string) => void;
     onClearSelection: () => void;
     onConfirmDeletion: (hotspotId: string) => void;
+    isFullscreenActive?: boolean;
 }
 
 const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(({
@@ -61,17 +62,16 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
     onSelectHotspotForDeletion,
     onClearSelection,
     onConfirmDeletion,
+    isFullscreenActive,
 }, ref) => {
     // States
     const [isDrawing, setIsDrawing] = useState<boolean>(false);
     const [startCoords, setStartCoords] = useState<Coords | null>(null);
-    const [currentScale, setCurrentScale] = useState(1);
     const [currentRect, setCurrentRect] = useState<Rect | null>(null);
-    const [currentPosX, setCurrentPosX] = useState(0);
-    const [currentPosY, setCurrentPosY] = useState(0);
     const [isImageLoading, setIsImageLoading] = useState<boolean>(true);
     const [containerCanvaStyle, setContainerCanvaStyle] = useState<React.CSSProperties | undefined>(undefined);
     const [transformData, setTransformData] = useState<TransformData>({ scale: 1, x: 0, y: 0 });
+    const [transformCurrentData, setTransformCurrentData] = useState<TransformData>({ scale: 1, x: 0, y: 0 });
 
     const { containerDims, controlsHeight, baseDims } = useMapInstanceContext();
 
@@ -143,9 +143,9 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
         if (containerCanvaRef.current && currentRect.width > 1 && currentRect.height > 1) {
 
             // Use transform state variables updated by onTransformed callback
-            const scale = currentScale;
-            const positionX = currentPosX;
-            const positionY = currentPosY;
+            const scale = transformCurrentData.scale;
+            const positionX = transformCurrentData.x;
+            const positionY = transformCurrentData.y;
 
             const drawnRectOnImageX = (currentRect.x - positionX) / scale;
             const drawnRectOnImageY = (currentRect.y - positionY) / scale;
@@ -194,48 +194,62 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
     };
 
     const handleTransformed = useCallback((_ref: ReactZoomPanPinchRef, state: { scale: number; positionX: number; positionY: number }) => {
-        setCurrentScale(state.scale);
-        setCurrentPosX(state.positionX);
-        setCurrentPosY(state.positionY);
+        setTransformCurrentData({ scale: state.scale, x: state.positionX, y: state.positionY });
     }, []);
+
+    function imageChangeParams(imageLoading = false) {
+        if (!containerCanvaRef.current || !containerRef.current) return null;
+        const rectCanva = containerCanvaRef.current.getBoundingClientRect();
+        const container = containerRef.current.getBoundingClientRect();
+
+        let scale = 1;
+        let x = 0;
+        let y = 0;
+
+        if (container.width > canvasWidth && container.height > canvasHeight) {
+            scale = 1;
+            x = rectCanva.left < 0 ? (-1) * rectCanva.left / 2 : 0;
+            y = rectCanva.top < 0 ? (-1) * rectCanva.top / 2 : 0;
+        } else {
+            const percWidth = container.width / canvasWidth;
+            const percHeight = container.height / canvasHeight;
+
+            scale = percWidth < percHeight ? percWidth : percHeight;
+
+            x = ((canvasWidth - container.width) / 2) + (container.width - canvasWidth * scale) / 2;
+            y = ((canvasHeight - container.height) / 2) + (container.height - canvasHeight * scale) / 2;
+        }
+
+        const wrapperRefCurrent = transformWrapperRef.current;
+        if (wrapperRefCurrent?.setTransform) {
+            wrapperRefCurrent.setTransform(x, y, scale, 0); // x=0, y=0, scale=1, animationTime=0
+        }
+        setTransformData({ scale, x, y });
+        if (imageLoading) {
+            setIsImageLoading(false);
+        }
+    }
 
     useEffect(() => {
         setIsImageLoading(true);
 
         const timerId = setTimeout(() => {
-            if (!containerCanvaRef.current || !containerRef.current) return null;
-            const rectCanva = containerCanvaRef.current.getBoundingClientRect();
-            const container = containerRef.current.getBoundingClientRect();
-
-            let scale = 1;
-            let x = 0;
-            let y = 0;
-
-            if (container.width > canvasWidth && container.height > canvasHeight) {
-                scale = 1;
-                x = rectCanva.left < 0 ? (-1) * rectCanva.left / 2 : 0;
-                y = rectCanva.top < 0 ? (-1) * rectCanva.top / 2 : 0;
-            } else {
-                const percWidth = container.width / canvasWidth;
-                const percHeight = container.height / canvasHeight;
-
-                scale = percWidth < percHeight ? percWidth : percHeight;
-
-                x = ((canvasWidth - container.width) / 2) + (container.width - canvasWidth * scale) / 2;
-                y = ((canvasHeight - container.height) / 2) + (container.height - canvasHeight * scale) / 2;
-            }
-
-            const wrapperRefCurrent = transformWrapperRef.current;
-            if (wrapperRefCurrent?.setTransform) {
-                wrapperRefCurrent.setTransform(x, y, scale, 0); // x=0, y=0, scale=1, animationTime=0
-            }
-            setTransformData({ scale, x, y });
-            setIsImageLoading(false);
+            imageChangeParams(true);
         }, 550);
 
         return () => clearTimeout(timerId);
 
     }, [currentMapId]);
+
+    useEffect(() => {
+        const timerId = setTimeout(() => {
+            imageChangeParams(false);
+        }, 50);
+
+        console.log('isFullscreenActive: ' + isFullscreenActive);
+
+        return () => clearTimeout(timerId);
+    }, [isFullscreenActive]);
 
     useEffect(() => {
         if (!containerRef.current) return;
@@ -327,8 +341,8 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
                     initialScale={1}
                     initialPositionX={0}
                     initialPositionY={0}
-                    minScale={0.3}
-                    maxScale={4}
+                    minScale={0.08}
+                    maxScale={3}
                     limitToBounds={false}
                     doubleClick={{ disabled: true }}
                     onTransformed={handleTransformed}

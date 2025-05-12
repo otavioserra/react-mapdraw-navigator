@@ -31,6 +31,9 @@ interface MapdrawProps {
     initialDataJsonString?: string;
     config?: MapdrawConfig;
     onHeightChange?: (height: number) => void;
+    isFullscreenActive?: boolean;
+    onToggleFullscreen?: () => void;
+    containerElement?: HTMLDivElement | null;
 }
 
 const generateUniqueIdPart = () => Date.now().toString(36) + Math.random().toString(36).substring(2, 5);
@@ -40,7 +43,10 @@ const Mapdraw: React.FC<MapdrawProps> = ({
     className,
     initialDataJsonString,
     config,
-    onHeightChange
+    onHeightChange,
+    isFullscreenActive,
+    onToggleFullscreen,
+    containerElement
 }) => {
     const {
         currentMapId,
@@ -364,6 +370,8 @@ const Mapdraw: React.FC<MapdrawProps> = ({
                     onConfirmChangeRootImage={handleConfirmChangeRootImage} // Save button handler
                     onCancelChangeRootImage={handleCancelChangeRootImage}
                     onHeightChange={onHeightChange}
+                    isFullscreenActive={isFullscreenActive}
+                    onToggleFullscreen={onToggleFullscreen}
                 />
 
                 {/* Display Error Messages using Container */}
@@ -384,6 +392,7 @@ const Mapdraw: React.FC<MapdrawProps> = ({
                         onSelectHotspotForDeletion={handleSelectHotspotForDeletion}
                         onClearSelection={handleClearDeletionSelection}
                         onConfirmDeletion={handleConfirmDeletion}
+                        isFullscreenActive={isFullscreenActive}
                     />
                 )}
 
@@ -401,6 +410,7 @@ const Mapdraw: React.FC<MapdrawProps> = ({
                     contentLabel="Add New Hotspot Details" // Updated label
                     className="m-auto bg-white p-6 rounded-lg shadow-xl max-w-md w-11/12 outline-none"
                     overlayClassName="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50"
+                    parentSelector={() => containerElement || document.body}
                 >
                     {/* Use Heading component */}
                     <Heading level={2} className="text-xl font-semibold mb-5 text-gray-800">

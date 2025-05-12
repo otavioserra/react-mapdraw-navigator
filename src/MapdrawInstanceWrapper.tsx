@@ -21,6 +21,7 @@ const MapdrawInstanceWrapper: React.FC<MapdrawInstanceWrapperProps> = ({
     // States
     const [currentContainerDims, setCurrentContainerDims] = useState<{ width: number; height: number } | null>(null);
     const [currentControlsHeight, setCurrentControlsHeight] = useState<number | null>(null);
+    const [isFullscreenActive, setIsFullscreenActive] = useState<boolean>(false);
 
     // Effect to set up observer
     useEffect(() => {
@@ -55,6 +56,27 @@ const MapdrawInstanceWrapper: React.FC<MapdrawInstanceWrapperProps> = ({
 
     }, [containerElement]);
 
+    // Add another useEffect for native fullscreen changes
+
+    useEffect(() => {
+        const handleActualFullscreenChange = () => {
+            setIsFullscreenActive(!!document.fullscreenElement);
+        };
+
+        document.addEventListener('fullscreenchange', handleActualFullscreenChange);
+        // Also for webkit browsers
+        document.addEventListener('webkitfullscreenchange', handleActualFullscreenChange);
+        // Also for ms browsers
+        document.addEventListener('msfullscreenchange', handleActualFullscreenChange);
+
+
+        return () => {
+            document.removeEventListener('fullscreenchange', handleActualFullscreenChange);
+            document.removeEventListener('webkitfullscreenchange', handleActualFullscreenChange);
+            document.removeEventListener('msfullscreenchange', handleActualFullscreenChange);
+        };
+    }, []);
+
     const handleControlsHeightChange = useCallback((height: number) => {
         setCurrentControlsHeight(prevHeight => {
             if (height !== prevHeight) {
@@ -63,6 +85,33 @@ const MapdrawInstanceWrapper: React.FC<MapdrawInstanceWrapperProps> = ({
             return prevHeight;
         });
     }, []);
+
+    // Add handler to toggle fullscreen
+    const handleToggleFullscreen = useCallback(() => {
+        if (!containerElement) return; // Guard clause
+
+        if (!document.fullscreenElement) {
+            containerElement.requestFullscreen()
+                .then(() => {
+                    // State update might be handled by the event listener,
+                    // but setting it here can be a good immediate feedback
+                    // setIsFullscreenActive(true); 
+                })
+                .catch(err => {
+                    console.error(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+                });
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen()
+                    .then(() => {
+                        // setIsFullscreenActive(false);
+                    })
+                    .catch(err => {
+                        console.error(`Error attempting to exit full-screen mode: ${err.message} (${err.name})`);
+                    });
+            }
+        }
+    }, [containerElement]);
 
     // Prepare context value
     const baseDims = config?.baseDims ?? { width: DEFAULT_CANVAS_WIDTH, height: DEFAULT_CANVAS_HEIGHT };
@@ -81,6 +130,9 @@ const MapdrawInstanceWrapper: React.FC<MapdrawInstanceWrapperProps> = ({
                 initialDataJsonString={initialDataJsonString}
                 config={config}
                 onHeightChange={handleControlsHeightChange}
+                isFullscreenActive={isFullscreenActive}
+                onToggleFullscreen={handleToggleFullscreen}
+                containerElement={containerElement}
             />
         </MapInstanceContextProvider>
     );
