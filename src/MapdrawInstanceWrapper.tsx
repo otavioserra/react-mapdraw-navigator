@@ -1,5 +1,5 @@
 // src/MapdrawInstanceWrapper.tsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Mapdraw, { MapdrawConfig } from './Mapdraw';
 import { MapInstanceContextProvider, DEFAULT_CANVAS_WIDTH, DEFAULT_CANVAS_HEIGHT } from './contexts/MapInstanceContext';
 
@@ -22,6 +22,8 @@ const MapdrawInstanceWrapper: React.FC<MapdrawInstanceWrapperProps> = ({
     const [currentContainerDims, setCurrentContainerDims] = useState<{ width: number; height: number } | null>(null);
     const [currentControlsHeight, setCurrentControlsHeight] = useState<number | null>(null);
     const [isFullscreenActive, setIsFullscreenActive] = useState<boolean>(false);
+    const [isWindowMaximized, setIsWindowMaximized] = useState<boolean>(false);
+    const originalContainerClassesRef = useRef<string>('');
 
     // Effect to set up observer
     useEffect(() => {
@@ -57,7 +59,6 @@ const MapdrawInstanceWrapper: React.FC<MapdrawInstanceWrapperProps> = ({
     }, [containerElement]);
 
     // Add another useEffect for native fullscreen changes
-
     useEffect(() => {
         const handleActualFullscreenChange = () => {
             setIsFullscreenActive(!!document.fullscreenElement);
@@ -77,6 +78,25 @@ const MapdrawInstanceWrapper: React.FC<MapdrawInstanceWrapperProps> = ({
         };
     }, []);
 
+    // Add useEffect to manage full window classes on containerElement
+    useEffect(() => {
+        if (!containerElement) return;
+
+        if (isWindowMaximized) {
+            // Store original classes if not already stored
+            if (!originalContainerClassesRef.current) {
+                originalContainerClassesRef.current = containerElement.className;
+            }
+            // Apply fullscreen window classes
+            containerElement.className = 'fixed inset-0 w-screen h-screen bg-white z-40 overflow-auto p-0 m-0 border-0 rounded-none react-mapdraw-navigator';
+        } else {
+            // Restore original classes if they were stored
+            if (originalContainerClassesRef.current) {
+                containerElement.className = originalContainerClassesRef.current;
+            }
+        }
+    }, [isWindowMaximized, containerElement]);
+
     const handleControlsHeightChange = useCallback((height: number) => {
         setCurrentControlsHeight(prevHeight => {
             if (height !== prevHeight) {
@@ -84,6 +104,11 @@ const MapdrawInstanceWrapper: React.FC<MapdrawInstanceWrapperProps> = ({
             }
             return prevHeight;
         });
+    }, []);
+
+    // Add handler to toggle window maximized mode
+    const handleToggleWindowMaximize = useCallback(() => {
+        setIsWindowMaximized(prev => !prev);
     }, []);
 
     // Add handler to toggle fullscreen
@@ -133,6 +158,8 @@ const MapdrawInstanceWrapper: React.FC<MapdrawInstanceWrapperProps> = ({
                 onHeightChange={handleControlsHeightChange}
                 isFullscreenActive={isFullscreenActive}
                 onToggleFullscreen={handleToggleFullscreen}
+                isWindowMaximized={isWindowMaximized}
+                onToggleWindowMaximize={handleToggleWindowMaximize}
             />
         </MapInstanceContextProvider>
     );

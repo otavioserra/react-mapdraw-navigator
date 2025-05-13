@@ -4,7 +4,7 @@ import * as Tooltip from '@radix-ui/react-tooltip';
 import { useMapInstanceContext } from '../contexts/MapInstanceContext';
 
 // Defines the style variants our button can have
-type ButtonVariant = 'default' | 'primary' | 'add' | 'remove' | 'toggle-on' | 'toggle-off' | 'export' | 'back' | 'disabled' | 'no-variant';
+type ButtonVariant = 'default' | 'primary' | 'add' | 'edit' | 'remove' | 'toggle-on' | 'toggle-off' | 'export' | 'back' | 'disabled' | 'no-variant';
 
 // Defines the props for the Button component
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -36,6 +36,7 @@ const Button: React.FC<ButtonProps> = ({
         case 'no-variant': variantClasses = ""; break;
         case 'primary': variantClasses = "cursor-pointer bg-blue-500 hover:bg-blue-600 border-blue-600 text-white focus:ring-blue-500"; break;
         case 'add': variantClasses = "cursor-pointer bg-green-100 hover:bg-green-200 border-green-300 text-green-800 focus:ring-green-500"; break;
+        case 'edit': variantClasses = "cursor-pointer bg-blue-100 hover:bg-blue-200 border-blue-300 text-blue-800 focus:ring-blue-500"; break;
         case 'remove': variantClasses = "cursor-pointer bg-red-100 hover:bg-red-200 border-red-300 text-red-800 focus:ring-red-500"; break;
         case 'toggle-on': variantClasses = "cursor-pointer bg-red-100 hover:bg-red-200 border-red-300 text-red-800 focus:ring-red-500"; break;
         case 'toggle-off': variantClasses = "cursor-pointer bg-green-100 hover:bg-green-200 border-green-300 text-green-800 focus:ring-green-500"; break;
@@ -52,11 +53,17 @@ const Button: React.FC<ButtonProps> = ({
         variantClasses = "bg-gray-200 border-gray-300 text-gray-400";
     }
 
+    let title = props.title;
+    if (tooltipContent) {
+        title = undefined;
+    }
+
     const buttonElement = (
         <button
             onClick={onClick}
             disabled={disabled}
             className={`${baseClasses} ${variantClasses} ${className}`}
+            title={title}
             {...props}
         >
             {children} {/* This will be the SVG icon */}

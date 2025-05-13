@@ -34,6 +34,8 @@ interface MapdrawProps {
     onHeightChange?: (height: number) => void;
     isFullscreenActive?: boolean;
     onToggleFullscreen?: () => void;
+    isWindowMaximized?: boolean;
+    onToggleWindowMaximize?: () => void;
 }
 
 const generateUniqueIdPart = () => Date.now().toString(36) + Math.random().toString(36).substring(2, 5);
@@ -45,7 +47,9 @@ const Mapdraw: React.FC<MapdrawProps> = ({
     config,
     onHeightChange,
     isFullscreenActive,
-    onToggleFullscreen
+    onToggleFullscreen,
+    isWindowMaximized,
+    onToggleWindowMaximize
 }) => {
     const {
         currentMapId,
@@ -59,7 +63,9 @@ const Mapdraw: React.FC<MapdrawProps> = ({
         editAction,
         setEditAction,
         deleteHotspot,
-        loadNewMapData
+        loadNewMapData,
+        updateHotspotDetails,
+        updateMapImageUrl
     } = useMapNavigation(rootMapId, initialDataJsonString);
 
     const { rootContainerElement } = useMapInstanceContext();
@@ -71,8 +77,10 @@ const Mapdraw: React.FC<MapdrawProps> = ({
     const [newMapUrlInput, setNewMapUrlInput] = useState('');
     const [pendingGeneratedMapId, setPendingGeneratedMapId] = useState<string | null>(null);
     const [hotspotToDeleteId, setHotspotToDeleteId] = useState<string | null>(null);
+    const [hotspotToEditId, setHotspotToEditId] = useState<string | null>(null);
     const mapViewerRef = useRef<MapImageViewerRefHandle>(null);
     const [newRootUrlInput, setNewRootUrlInput] = useState('');
+    const [newHotspotTitleInput, setNewHotspotTitleInput] = useState('');
 
     // Configs
     const isAdminEnabled = config?.isAdminEnabled ?? false;
@@ -94,6 +102,7 @@ const Mapdraw: React.FC<MapdrawProps> = ({
             navigateToChild(mapId);
         }
     }, [navigateToChild, isEditMode, editAction]); // Add isEditMode and editAction dependencies
+
     const handleHotspotDrawn = useCallback((rect: RelativeRect) => {
         // Only trigger if the current action is 'adding'
         if (editAction !== 'adding') {
@@ -106,16 +115,91 @@ const Mapdraw: React.FC<MapdrawProps> = ({
         setNewMapUrlInput('');
         setIsModalOpen(true);
     }, [editAction]); // Add editAction dependency
+
     const handleModalCancel = useCallback(() => {
         setIsModalOpen(false);
         setNewHotspotRect(null);
         setNewMapUrlInput('');
-        setPendingGeneratedMapId(null); // Reset the pending generated ID
-    }, []);
+        setPendingGeneratedMapId(null);
+        setNewHotspotTitleInput('');
 
-    // MODIFY the block starting around Line 50:
+        if (editAction === 'editing_hotspot') {
+            setHotspotToEditId(null);
+            setEditAction('selecting_for_edit');
+        } else if (editAction === 'adding') {
+
+        }
+    }, [editAction, setEditAction, setHotspotToEditId]);
+
+    const handleSelectHotspotForEditing = useCallback((selectedHotspotId: string) => {
+        setHotspotToEditId(selectedHotspotId);
+
+        // Directly find and populate for modal (handleInitiateEditHotspot modified)
+        if (!currentMapId || !managedMapData[currentMapId]) return;
+        const map = managedMapData[currentMapId];
+        const hotspotToEdit = map.hotspots.find(hs => hs.id === selectedHotspotId);
+
+        if (!hotspotToEdit) {
+            console.error("Selected hotspot for edit not found (in handleSelect).");
+            return;
+        }
+
+        const linkedMapDefinition = managedMapData[hotspotToEdit.link_to_map_id];
+        const linkedMapImageUrl = linkedMapDefinition?.imageUrl || '';
+
+        setNewHotspotRect({ x: hotspotToEdit.x, y: hotspotToEdit.y, width: hotspotToEdit.width, height: hotspotToEdit.height });
+        setNewMapUrlInput(linkedMapImageUrl);
+        setNewHotspotTitleInput(hotspotToEdit.title || '');
+        setPendingGeneratedMapId(null); // Clear this as we are not generating a new map for the link
+        setEditAction('editing_hotspot'); // Now we are in editing_hotspot mode
+        setIsModalOpen(true);
+
+    }, [currentMapId, managedMapData, setEditAction, setNewHotspotRect, setNewMapUrlInput, setNewHotspotTitleInput, setIsModalOpen, setHotspotToEditId]);
+
     const handleModalSubmit = useCallback((event: FormEvent) => {
         event.preventDefault(); // Prevent default form submission
+
+        if (editAction === 'editing_hotspot') {
+            if (!currentMapId || !hotspotToEditId) {
+                console.error("Editing hotspot, but currentMapId or hotspotToEditId is missing.");
+                handleModalCancel();
+                return;
+            }
+
+            const hotspotBeingEdited = managedMapData[currentMapId]?.hotspots.find(hs => hs.id === hotspotToEditId);
+            if (!hotspotBeingEdited) {
+                console.error("Hotspot to edit definition not found for update.");
+                handleModalCancel();
+                return;
+            }
+
+            const newTitleForHotspot = newHotspotTitleInput.trim() || undefined;
+            const newImageUrlForLinkedMap = newMapUrlInput.trim();
+
+            updateHotspotDetails(currentMapId, hotspotToEditId, { title: newTitleForHotspot });
+
+            if (newImageUrlForLinkedMap) {
+                let isValidUrl = false;
+                try {
+                    new URL(newImageUrlForLinkedMap);
+                    isValidUrl = true; // For absolute URLs
+                } catch (_) {
+                    if (newImageUrlForLinkedMap.startsWith('/')) { // For relative local paths
+                        isValidUrl = true;
+                    }
+                }
+
+                if (isValidUrl) {
+                    const originalLinkedMapImageUrl = managedMapData[hotspotBeingEdited.link_to_map_id]?.imageUrl;
+                    if (originalLinkedMapImageUrl !== newImageUrlForLinkedMap) {
+                        updateMapImageUrl(hotspotBeingEdited.link_to_map_id, newImageUrlForLinkedMap);
+                    }
+                }
+            }
+
+            handleModalCancel();
+            return;
+        }
 
         // --- Step 3: Add check for pendingGeneratedMapId ---
         if (!pendingGeneratedMapId) {
@@ -170,6 +254,7 @@ const Mapdraw: React.FC<MapdrawProps> = ({
             width: newHotspotRect.width,
             height: newHotspotRect.height,
             link_to_map_id: newMapId, // <<< Correctly uses the generated ID
+            title: newHotspotTitleInput.trim() || undefined,
         };
 
         // Call hook function
@@ -179,16 +264,20 @@ const Mapdraw: React.FC<MapdrawProps> = ({
         // Reset state and close modal
         // (Keep cleanup logic - calling handleModalCancel covers resetting pendingGeneratedMapId)
         handleModalCancel();
-
     }, [
-        // Update dependencies
         currentMapId,
         newHotspotRect,
-        pendingGeneratedMapId, // Keep this dependency
+        pendingGeneratedMapId,
         newMapUrlInput,
+        newHotspotTitleInput,
         addHotspotAndMapDefinition,
         handleModalCancel,
-        managedMapData
+        managedMapData,
+        editAction,
+        hotspotToEditId,
+        updateHotspotDetails,
+        updateMapImageUrl,
+        setEditAction
     ]);
     // --- End of handleModalSubmit modification ---
 
@@ -323,13 +412,6 @@ const Mapdraw: React.FC<MapdrawProps> = ({
 
         // 3. Call the hook function to load this new structure, replacing everything else
         loadNewMapData(newJsonString);
-        // loadNewMapData already handles:
-        // - setManagedMapData(newMapData)
-        // - setCurrentMapId(rootMapId)
-        // - setCurrentMapDisplayData
-        // - setNavigationHistory([])
-        // - setError(null)
-        // - setEditAction('none')
 
         // --- End of new logic ---
 
@@ -373,6 +455,9 @@ const Mapdraw: React.FC<MapdrawProps> = ({
                     onHeightChange={onHeightChange}
                     isFullscreenActive={isFullscreenActive}
                     onToggleFullscreen={onToggleFullscreen}
+                    isWindowMaximized={isWindowMaximized}
+                    onToggleWindowMaximize={onToggleWindowMaximize}
+                    hotspotToEditId={hotspotToEditId}
                 />
 
                 {/* Display Error Messages using Container */}
@@ -394,6 +479,8 @@ const Mapdraw: React.FC<MapdrawProps> = ({
                         onClearSelection={handleClearDeletionSelection}
                         onConfirmDeletion={handleConfirmDeletion}
                         isFullscreenActive={isFullscreenActive}
+                        isWindowMaximized={isWindowMaximized}
+                        onSelectHotspotForEditing={handleSelectHotspotForEditing}
                     />
                 )}
 
@@ -408,17 +495,17 @@ const Mapdraw: React.FC<MapdrawProps> = ({
                 <Modal
                     isOpen={isModalOpen}
                     onRequestClose={handleModalCancel}
-                    contentLabel="Add New Hotspot Details" // Updated label
+                    contentLabel={editAction === 'editing_hotspot' ? 'Edit Hotspot Details' : 'Add New Hotspot Details'}
                     className="m-auto bg-white p-6 rounded-lg shadow-xl max-w-md w-11/12 outline-none"
                     overlayClassName="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50"
                     parentSelector={() => rootContainerElement || document.body}
                 >
                     {/* Use Heading component */}
                     <Heading level={2} className="text-xl font-semibold mb-5 text-gray-800">
-                        Add New Hotspot Details
+                        {editAction === 'editing_hotspot' ? 'Edit Hotspot Details' : 'Add New Hotspot Details'}
                     </Heading>
                     <Form onSubmit={handleModalSubmit}>
-                        {pendingGeneratedMapId && (
+                        {(editAction === 'adding' && pendingGeneratedMapId) && (
                             // Use Container for consistent form grouping (optional)
                             <Container variant="default" className="mb-4">
                                 <p className="text-sm text-gray-600">
@@ -430,11 +517,25 @@ const Mapdraw: React.FC<MapdrawProps> = ({
                             </Container>
                         )}
 
+                        <Container variant="form-group">
+                            <Label htmlFor="hotspotTitle" /* ... */ >
+                                Hotspot Title (Optional):
+                            </Label>
+                            <Input
+                                type="text" id="hotspotTitle"
+                                value={newHotspotTitleInput}
+                                onChange={(e) => setNewHotspotTitleInput(e.target.value)}
+                                placeholder="Enter a display title"
+                                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                autoFocus
+                            />
+                        </Container>
+
                         {/* Use Container for form group */}
                         <Container variant="form-group">
                             {/* Use Label component */}
                             <Label htmlFor="mapUrl" className="block text-gray-700 text-sm font-medium mb-2">
-                                New Map Image URL:
+                                {editAction === 'editing_hotspot' ? 'Link to Map Image URL:' : 'New Map Image URL (for linked map):'}
                             </Label>
                             {/* Use Input component */}
                             <Input
@@ -445,7 +546,6 @@ const Mapdraw: React.FC<MapdrawProps> = ({
                                 className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                                 placeholder="Enter image URL (http://... or /images/...)"
                                 required
-                                autoFocus
                             />
                         </Container>
 
@@ -466,7 +566,7 @@ const Mapdraw: React.FC<MapdrawProps> = ({
                                 variant="primary" // Use primary variant
                             // className="px-4 py-2 bg-indigo-600 text-white rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                             >
-                                Add Hotspot
+                                {editAction === 'editing_hotspot' ? 'Save Changes' : 'Add Hotspot'}
                             </Button>
                         </Container>
                     </Form>

@@ -18,6 +18,7 @@ export interface Hotspot {
     height: number;
     /** ID of the map this hotspot links to. */
     link_to_map_id: string;
+    title?: string;
 }
 
 /** Defines the structure of a single map's data. */
@@ -40,7 +41,7 @@ export interface MapDisplayData {
 }
 
 /** Possible actions while in edit mode */
-export type EditAction = 'none' | 'adding' | 'selecting_for_deletion' | 'changing_root_image';
+export type EditAction = 'none' | 'adding' | 'selecting_for_deletion' | 'changing_root_image' | 'editing_hotspot' | 'selecting_for_edit';
 
 /** Defines the structure of the object returned by the useMapNavigation hook. */
 interface UseMapNavigationReturn {
@@ -65,6 +66,8 @@ interface UseMapNavigationReturn {
     editAction: EditAction; // The current action being performed in edit mode
     setEditAction: React.Dispatch<React.SetStateAction<EditAction>>; // Function to change the edit action
     loadNewMapData: (jsonString: string) => void; // Function to load new data set
+    updateMapImageUrl: (mapId: string, newImageUrl: string) => void;
+    updateHotspotDetails: (targetMapId: string, hotspotIdToUpdate: string, newDetails: Partial<Omit<Hotspot, 'id' | 'x' | 'y' | 'width' | 'height'>>) => void; // Function to update hotspot details
 }
 
 /** Fallback map data loaded from the imported JSON file. */
@@ -151,20 +154,17 @@ export const useMapNavigation = (
         if (currentMapId) {
             const currentData = managedMapData[currentMapId];
             if (currentData) {
-                // Ensure the currently displayed map data is up-to-date
                 setCurrentMapDisplayData({
                     imageUrl: currentData.imageUrl,
-                    hotspots: currentData.hotspots,
+                    hotspots: [...currentData.hotspots],
                 });
             } else {
-                // Handle cases where the current map might have been deleted externally
-                const errorMsg = `Inconsistency detected: Current map ID '${currentMapId}' no longer exists in data.`;
-                console.error(errorMsg);
-                setError(errorMsg);
-                // Consider resetting navigation state here if appropriate
+                setCurrentMapDisplayData(null);
             }
+        } else {
+            setCurrentMapDisplayData(null);
         }
-    }, [managedMapData, currentMapId]); // Rerun if map data or current map ID changes
+    }, [managedMapData, currentMapId, setCurrentMapDisplayData]);
 
     /**
      * Navigates to a new map specified by its ID.
@@ -364,6 +364,87 @@ export const useMapNavigation = (
         }
     }, []);
 
+    const updateHotspotDetails = useCallback(
+        (targetMapId: string, hotspotIdToUpdate: string, newDetails: Partial<Omit<Hotspot, 'id' | 'x' | 'y' | 'width' | 'height'>>) => {
+            setError(null);
+            setManagedMapData(prevMapData => {
+                const newMapData = JSON.parse(JSON.stringify(prevMapData));
+                const mapDef = newMapData[targetMapId];
+
+                if (!mapDef || !mapDef.hotspots) {
+                    const errorMsg = `Cannot update hotspot: Map definition or hotspots array not found for ID '${targetMapId}'`;
+                    console.error(errorMsg);
+                    setError(errorMsg);
+                    return prevMapData;
+                }
+
+                const hotspotIndex = mapDef.hotspots.findIndex((hs: Hotspot) => hs.id === hotspotIdToUpdate);
+
+                if (hotspotIndex === -1) {
+                    const errorMsg = `Cannot update hotspot: Hotspot with ID '${hotspotIdToUpdate}' not found in map '${targetMapId}'`;
+                    console.error(errorMsg);
+                    setError(errorMsg);
+                    return prevMapData;
+                }
+
+                mapDef.hotspots[hotspotIndex] = {
+                    ...mapDef.hotspots[hotspotIndex],
+                    title: newDetails.title,
+                };
+                return newMapData;
+            });
+        },
+        [setManagedMapData, setError]
+    );
+
+    // Action: Add this entire function definition block
+    /**
+     * Updates the image URL for a specific map ID.
+     * @param mapId The ID of the map whose image URL should be updated.
+     * @param newImageUrl The new URL string for the image.
+     */
+    const updateMapImageUrl = useCallback((mapId: string, newImageUrl: string) => {
+        setError(null);
+        setManagedMapData(prevMapData => {
+            const newMapData = JSON.parse(JSON.stringify(prevMapData));
+            const mapDef = newMapData[mapId];
+
+            if (!mapDef) {
+                const errorMsg = `Cannot update image URL: Map definition not found for ID '${mapId}'`;
+                console.error(errorMsg);
+                setError(errorMsg);
+                return prevMapData; // Return original data on error
+            }
+
+            // Validate new URL (basic)
+            const trimmedUrl = newImageUrl.trim();
+            if (!trimmedUrl) {
+                const errorMsg = "New image URL cannot be empty when updating.";
+                console.error(errorMsg);
+                setError(errorMsg);
+                return prevMapData; // Prevent setting empty URL
+            }
+            try { new URL(trimmedUrl); } catch (_) {
+                if (!trimmedUrl.startsWith('/')) {
+                    const errorMsg = 'Invalid image URL format when updating.';
+                    console.error(errorMsg, trimmedUrl);
+                    setError(errorMsg);
+                    return prevMapData;
+                }
+            }
+
+            // Update the imageUrl
+            mapDef.imageUrl = trimmedUrl;
+            console.log(`Updated image URL for map '${mapId}' to '${trimmedUrl}'`);
+
+            // If the updated map is the currently viewed map,
+            // the useEffect hook watching [managedMapData, currentMapId]
+            // should automatically update currentMapDisplayData.
+
+            return newMapData; // Return the updated map data structure
+        });
+    }, [setManagedMapData, setError]); // Dependencies: state setters
+
     // Return the public API of the hook
     return {
         currentMapId,
@@ -378,5 +459,7 @@ export const useMapNavigation = (
         editAction,     // Expose the current edit action state
         setEditAction,  // Expose the function to set the edit action
         loadNewMapData,
+        updateMapImageUrl,
+        updateHotspotDetails,
     };
 };

@@ -48,6 +48,8 @@ interface MapImageViewerProps {
     onClearSelection: () => void;
     onConfirmDeletion: (hotspotId: string) => void;
     isFullscreenActive?: boolean;
+    onSelectHotspotForEditing?: (hotspotId: string) => void;
+    isWindowMaximized?: boolean;
 }
 
 const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(({
@@ -63,6 +65,8 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
     onClearSelection,
     onConfirmDeletion,
     isFullscreenActive,
+    onSelectHotspotForEditing,
+    isWindowMaximized
 }, ref) => {
     // States
     const [isDrawing, setIsDrawing] = useState<boolean>(false);
@@ -182,6 +186,8 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
     const handleHotspotInteraction = (hotspotId: string, linkToMapId: string) => {
         if (isEditMode && editAction === 'selecting_for_deletion') {
             onSelectHotspotForDeletion(hotspotId);
+        } else if (isEditMode && editAction === 'selecting_for_edit') {
+            onSelectHotspotForEditing?.(hotspotId);
         } else if (!isEditMode) {
             onHotspotClick(linkToMapId);
         }
@@ -246,10 +252,8 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
             imageChangeParams(false);
         }, 50);
 
-        console.log('isFullscreenActive: ' + isFullscreenActive);
-
         return () => clearTimeout(timerId);
-    }, [isFullscreenActive]);
+    }, [isFullscreenActive, isWindowMaximized]);
 
     useEffect(() => {
         if (!containerRef.current) return;

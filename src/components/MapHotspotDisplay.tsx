@@ -37,8 +37,10 @@ const MapHotspotDisplay: React.FC<MapHotspotDisplayProps> = ({
             }
         } else if (editAction === 'adding') {
             modeClasses = `cursor-default border-2 border-dashed border-green-700 bg-green-500/70 pointer-events-none animate-pulse`; // Visible but non-interactive
+        } else if (editAction === 'selecting_for_edit') {
+            modeClasses = `cursor-pointer border-2 border-dashed border-blue-700 bg-blue-500/70 hover:bg-blue-500/40 pointer-events-auto animate-pulse`;
         } else { // isEditMode but action is 'none'
-            modeClasses = `cursor-default border-2 border-dashed border-blue-900 bg-blue-500/70 pointer-events-none animate-pulse`; // Visible but non-interactive
+            modeClasses = `cursor-default border-2 border-dashed border-yellow-700 bg-yellow-500/70 pointer-events-none animate-pulse`; // Visible but non-interactive
         }
     } else {
         // View Mode
@@ -68,13 +70,24 @@ const MapHotspotDisplay: React.FC<MapHotspotDisplayProps> = ({
     // Calculate tooltip content dynamically
     let tooltipText: string;
     if (isEditMode) {
+        const displayName = hotspot.title || hotspot.id;
         if (editAction === 'selecting_for_deletion') {
-            tooltipText = isSelected ? `Deselect Hotspot: ${hotspot.id}` : `Select to Delete: ${hotspot.id}`;
+            tooltipText = isSelected ? `Deselect: ${displayName}` : `Select to Delete: ${displayName}`;
         } else {
-            tooltipText = `Hotspot ID: ${hotspot.id} (Links to: ${hotspot.link_to_map_id})`;
+            tooltipText = `Select to Edit: ${displayName}`;
         }
     } else {
-        tooltipText = `Go to map: ${hotspot.link_to_map_id}`;
+        // Action: Use title if available for navigation
+        tooltipText = hotspot.title || `Go to map: ${hotspot.link_to_map_id}`;
+    }
+
+    let title =
+        isEditMode
+            ? (editAction === 'selecting_for_deletion' ? `Select/Deselect Hotspot ID: ${hotspot.id}` : `Hotspot ID: ${hotspot.id}`)
+            : `Go to map: ${hotspot.link_to_map_id}`
+        ;
+    if (tooltipText) {
+        title = '';
     }
 
     return (
@@ -85,13 +98,8 @@ const MapHotspotDisplay: React.FC<MapHotspotDisplayProps> = ({
                     className={combinedClasses}
                     style={positionStyle}
                     onClick={handleHotspotClick}
-                    title={
-                        isEditMode
-                            ? (editAction === 'selecting_for_deletion' ? `Select/Deselect Hotspot ID: ${hotspot.id}` : `Hotspot ID: ${hotspot.id}`)
-                            : `Go to map: ${hotspot.link_to_map_id}`
-                    }
+                    title={title}
                 >
-                    {/* Render Delete Button Conditionally */}
                     {isSelected && editAction === 'selecting_for_deletion' && (
                         <Button
                             variant="no-variant"
@@ -103,18 +111,15 @@ const MapHotspotDisplay: React.FC<MapHotspotDisplayProps> = ({
                             X
                         </Button>
                     )}
-                    {/* Optional: Render hotspot ID - Maybe only if !isSelected? */}
-                    {/* {isEditMode && <span className="absolute top-0 left-0 text-[9px] bg-white/70 px-0.5 py-0">{hotspot.id}</span>} */}
-                    {/* {!isEditMode && <span className="absolute text-4xl font-bold top-0 left-0 text-[9px] bg-white/70 px-0.5 py-0.5">Click to Open!</span>} */}
                 </Container>
             </Tooltip.Trigger>
             <Tooltip.Portal container={rootContainerElement || undefined}>
                 <Tooltip.Content
                     className="text-xs bg-gray-900 text-white rounded px-2 py-1 shadow-md select-none z-50" // Style for tooltip
-                    sideOffset={5} // Distance from the hotspot
+                    sideOffset={5}
                     align="center"
                 >
-                    {tooltipText} {/* <<< Use the calculated text */}
+                    {tooltipText}
                     <Tooltip.Arrow className="fill-gray-900" />
                 </Tooltip.Content>
             </Tooltip.Portal>
