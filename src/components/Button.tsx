@@ -29,7 +29,7 @@ const Button: React.FC<ButtonProps> = ({
     // --- Style Logic Based on Variant (Tailwind Example) ---
     // Adapt this if using inline styles or CSS Modules
 
-    let baseClasses = "px-1.5 py-1.5 rounded border font-medium text-xs shadow-sm focus:outline-none focus:ring-2 focus:ring-opacity-50 flex items-center justify-center"; // Adjusted base padding, added flex for icon centering
+    let baseClasses = "px-1.5 py-1.5 rounded border font-medium text-xs shadow-sm focus:outline-none flex items-center justify-center"; // Adjusted base padding, added flex for icon centering
     let variantClasses = "";
 
     switch (variant) {

@@ -50,6 +50,7 @@ interface MapImageViewerProps {
     isFullscreenActive?: boolean;
     onSelectHotspotForEditing?: (hotspotId: string) => void;
     isWindowMaximized?: boolean;
+    isModalOpen?: boolean;
 }
 
 const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(({
@@ -66,7 +67,8 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
     onConfirmDeletion,
     isFullscreenActive,
     onSelectHotspotForEditing,
-    isWindowMaximized
+    isWindowMaximized,
+    isModalOpen
 }, ref) => {
     // States
     const [isDrawing, setIsDrawing] = useState<boolean>(false);
@@ -183,6 +185,128 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
         setCurrentRect(null);
     };
 
+    // Helper to get canvas-relative coordinates from a Touch event
+    const getCanvasCoordsFromTouchEvent = (event: React.TouchEvent<HTMLDivElement>): Coords | null => {
+        if (!containerCanvaRef.current || event.touches.length === 0) return null;
+        // Use the first touch point
+        const touch = event.touches[0];
+        const rectCanva = containerCanvaRef.current.getBoundingClientRect();
+        // Calculate x/y based on clientX/Y relative to the canvas rect
+        const x = touch.clientX - rectCanva.left;
+        const y = touch.clientY - rectCanva.top;
+        return { x, y };
+    };
+
+    const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+        if (!isEditMode || editAction !== 'adding') return;
+        event.preventDefault();
+
+        // Action: Use the helper function
+        const canvasCoords = getCanvasCoordsFromTouchEvent(event);
+
+        if (!canvasCoords) return;
+
+        setIsDrawing(true);
+        setStartCoords(canvasCoords); // startCoords now correctly stores canvas-relative
+        setCurrentRect({ x: canvasCoords.x, y: canvasCoords.y, width: 0, height: 0 });
+    };
+
+    const handleTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
+        if (!isDrawing || !startCoords) return;
+        event.preventDefault();
+
+        // Action: Use the helper function
+        const currentCanvasCoords = getCanvasCoordsFromTouchEvent(event);
+
+        if (!currentCanvasCoords) return;
+
+        const startCanvasX = startCoords.x;
+        const startCanvasY = startCoords.y;
+        const currentCanvasX = currentCanvasCoords.x; // Already canvas-relative
+        const currentCanvasY = currentCanvasCoords.y; // Already canvas-relative
+
+        const x = Math.min(startCanvasX, currentCanvasX);
+        const y = Math.min(startCanvasY, currentCanvasY);
+        const width = Math.abs(startCanvasX - currentCanvasX);
+        const height = Math.abs(startCanvasY - currentCanvasY);
+
+        setCurrentRect({ x, y, width, height });
+    };
+
+    const finalizeDrawing = () => {
+        // Action: Check existing state names
+        if (!isDrawing || !startCoords || !currentRect) {
+            setIsDrawing(false);
+            setStartCoords(null);
+            setCurrentRect(null);
+            return;
+        }
+        setIsDrawing(false);
+
+        // Action: Check existing ref name (containerCanvaRef) and state (currentRect)
+        if (containerCanvaRef.current && currentRect.width > 1 && currentRect.height > 1) {
+            // Use transform state variables updated by onTransformed callback
+            const scale = transformCurrentData.scale;
+            const positionX = transformCurrentData.x;
+            const positionY = transformCurrentData.y;
+
+            // Calculate drawn rectangle on the "original" image canvas space
+            // currentRect IS ALREADY relative to the canvas if getRelativeCoords uses containerCanvaRef
+            // AND if nativeEvent.offsetX/Y are used in touch handlers relative to the overlay
+            // that covers the canvas.
+            const drawnRectOnCanvasX = currentRect.x;
+            const drawnRectOnCanvasY = currentRect.y;
+            const drawnRectOnCanvasWidth = currentRect.width;
+            const drawnRectOnCanvasHeight = currentRect.height;
+
+            // The actual transformation for drawing was:
+            // const imageX = (currentRect.x - positionX) / scale;
+            // const imageY = (currentRect.y - positionY) / scale;
+            // const imageWidth = currentRect.width / scale;
+            // const imageHeight = currentRect.height / scale;
+            // This part maps the currentRect (which is canvas-relative due to new getRelativeCoords and touch)
+            // to the "actual unscaled, unpanned" image coordinates *within the canvas*.
+            // This step is CRUCIAL.
+
+            const imageX = (drawnRectOnCanvasX - positionX) / scale;
+            const imageY = (drawnRectOnCanvasY - positionY) / scale;
+            const imageWidth = drawnRectOnCanvasWidth / scale;
+            const imageHeight = drawnRectOnCanvasHeight / scale;
+
+
+            if (canvasWidth === 0 || canvasHeight === 0) { // canvasWidth/Height are from context baseDims
+                console.error("Canvas dimensions from context are zero. Cannot calculate relative hotspot.");
+                setStartCoords(null);
+                setCurrentRect(null);
+                return;
+            }
+
+            // Calculate percentage relative to the FIXED CANVAS dimensions
+            let relativeRect: Rect = {
+                x: (imageX / canvasWidth) * 100,
+                y: (imageY / canvasHeight) * 100,
+                width: (imageWidth / canvasWidth) * 100,
+                height: (imageHeight / canvasHeight) * 100,
+            };
+
+            // Clamp, log, call onHotspotDrawn (as in your previous handleMouseUp)
+            relativeRect.x = Math.max(0, Math.min(relativeRect.x, 100));
+            relativeRect.y = Math.max(0, Math.min(relativeRect.y, 100));
+            relativeRect.width = Math.max(0.1, Math.min(relativeRect.width, 100 - relativeRect.x));
+            relativeRect.height = Math.max(0.1, Math.min(relativeRect.height, 100 - relativeRect.y));
+            onHotspotDrawn(relativeRect);
+        }
+
+        // Action: Use existing state setters
+        setStartCoords(null);
+        setCurrentRect(null);
+    };
+
+    // handleMouseUp already resets state, use it for touchEnd too
+    const handleTouchEnd = () => {
+        finalizeDrawing();
+    };
+
     const handleHotspotInteraction = (hotspotId: string, linkToMapId: string) => {
         if (isEditMode && editAction === 'selecting_for_deletion') {
             onSelectHotspotForDeletion(hotspotId);
@@ -289,6 +413,7 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
         {
             'cursor-crosshair': isEditMode && editAction === 'adding',
             'cursor-move': !isEditMode,
+            'touch-none': isEditMode && editAction === 'adding'
         }
     );
 
@@ -350,7 +475,7 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
                     limitToBounds={false}
                     doubleClick={{ disabled: true }}
                     onTransformed={handleTransformed}
-                    disabled={isEditMode && (editAction === 'adding' || editAction === 'selecting_for_deletion')}
+                    disabled={isModalOpen || isDrawing}
                 >
                     {() => (
                         <React.Fragment>
@@ -375,6 +500,7 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
                                         isSelected={hotspot.id === hotspotToDeleteId}
                                         onClick={handleHotspotInteraction}
                                         onDeleteClick={onConfirmDeletion}
+                                        scale={transformCurrentData.scale}
                                     />
                                 ))}
 
@@ -385,6 +511,10 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
                                         onMouseMove={handleMouseMove}
                                         onMouseUp={handleMouseUp}
                                         onMouseLeave={handleMouseUp}
+                                        onTouchStart={handleTouchStart}
+                                        onTouchMove={handleTouchMove}
+                                        onTouchEnd={handleTouchEnd}
+                                        onTouchCancel={handleTouchEnd}
                                     />
                                 )}
                             </TransformComponent>

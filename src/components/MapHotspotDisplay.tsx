@@ -13,6 +13,7 @@ interface MapHotspotDisplayProps {
     isSelected: boolean;
     onClick: (id: string, link: string) => void;
     onDeleteClick: (id: string) => void;
+    scale: number;
 }
 
 const MapHotspotDisplay: React.FC<MapHotspotDisplayProps> = ({
@@ -22,6 +23,7 @@ const MapHotspotDisplay: React.FC<MapHotspotDisplayProps> = ({
     isSelected,
     onClick,
     onDeleteClick,
+    scale = 1
 }) => {
     const { rootContainerElement } = useMapInstanceContext();
 
@@ -90,6 +92,11 @@ const MapHotspotDisplay: React.FC<MapHotspotDisplayProps> = ({
         title = '';
     }
 
+    const deleteStyle: React.CSSProperties = {
+        fontSize: '25px',
+        transform: `scale(${(scale < 0.7 ? 3 * (1 - scale) : scale)})`,
+    };
+
     return (
         <Tooltip.Root>
             <Tooltip.Trigger asChild>
@@ -104,8 +111,8 @@ const MapHotspotDisplay: React.FC<MapHotspotDisplayProps> = ({
                         <Button
                             variant="no-variant"
                             onClick={handleDeleteClick}
-                            className="absolute px-3 py-1.5 -top-2 -right-2 w-3 h-6 bg-red-600 hover:bg-red-700 text-amber-50 border-2 border-red-800 rounded-full text-xs font-bold flex items-center justify-center leading-none cursor-pointer z-3 transition-colors duration-200 shadow-md pb-1.5 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-1"
-                            title={`Delete hotspot ${hotspot.id}`}
+                            style={deleteStyle}
+                            className="absolute -top-7 -right-7 w-12 h-12 bg-red-600 hover:bg-red-700 text-amber-50 border-2 border-red-800 rounded-full font-bold flex items-center justify-center leading-none cursor-pointer z-20 transition-colors duration-200 shadow-md focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-1"
                             aria-label={`Delete hotspot ${hotspot.id}`}
                         >
                             X

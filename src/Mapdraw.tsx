@@ -471,6 +471,7 @@ const Mapdraw: React.FC<MapdrawProps> = ({
                         hotspots={currentMapDisplayData.hotspots}
                         onHotspotClick={handleHotspotClick}
                         isEditMode={isEditMode}
+                        isModalOpen={isModalOpen}
                         onHotspotDrawn={handleHotspotDrawn}
                         editAction={editAction}
                         currentMapId={currentMapId}

@@ -52,64 +52,6 @@ const NormalModeControls: React.FC<Pick<AppControlsProps, 'onExportJson' | 'onTo
     </>
 );
 
-// Define specific props needed by EditModeControls
-interface EditModeControlsProps {
-    onToggleEditMode: () => void;
-    setEditAction: React.Dispatch<React.SetStateAction<EditAction>>;
-    editAction: EditAction;
-}
-
-// Mini-component for EDIT mode controls
-const EditModeControls: React.FC<EditModeControlsProps> = ({
-    onToggleEditMode,
-    setEditAction,
-    editAction,
-}) => (
-    <>
-        <Button
-            variant="add"
-            className={editAction === 'adding' ? 'ring-2 ring-green-500' : ''}
-            onClick={() => setEditAction('adding')}
-            tooltipContent="Add Hotspot"
-        >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-6">
-                <path fillRule="evenodd" d="M5.625 1.5H9a3.75 3.75 0 0 1 3.75 3.75v1.875c0 1.036.84 1.875 1.875 1.875H16.5a3.75 3.75 0 0 1 3.75 3.75v7.875c0 1.035-.84 1.875-1.875 1.875H5.625a1.875 1.875 0 0 1-1.875-1.875V3.375c0-1.036.84-1.875 1.875-1.875ZM12.75 12a.75.75 0 0 0-1.5 0v2.25H9a.75.75 0 0 0 0 1.5h2.25V18a.75.75 0 0 0 1.5 0v-2.25H15a.75.75 0 0 0 0-1.5h-2.25V12Z" clipRule="evenodd" />
-                <path d="M14.25 5.25a5.23 5.23 0 0 0-1.279-3.434 9.768 9.768 0 0 1 6.963 6.963A5.23 5.23 0 0 0 16.5 7.5h-1.875a.375.375 0 0 1-.375-.375V5.25Z" />
-            </svg>
-        </Button>
-
-        <Button
-            variant="edit"
-            onClick={() => setEditAction('selecting_for_edit')}
-            className={editAction === 'selecting_for_edit' ? 'ring-2 ring-blue-500' : ''} // Highlight if this mode is active
-            tooltipContent="Edit Hotspot"
-        >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-6">
-                <path fillRule="evenodd" d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0 0 16.5 9h-1.875a1.875 1.875 0 0 1-1.875-1.875V5.25A3.75 3.75 0 0 0 9 1.5H5.625ZM7.5 15a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5h-7.5A.75.75 0 0 1 7.5 15Zm.75 2.25a.75.75 0 0 0 0 1.5H12a.75.75 0 0 0 0-1.5H8.25Z" clipRule="evenodd" />
-                <path d="M12.971 1.816A5.23 5.23 0 0 1 14.25 5.25v1.875c0 .207.168.375.375.375H16.5a5.23 5.23 0 0 1 3.434 1.279 9.768 9.768 0 0 0-6.963-6.963Z" />
-            </svg>
-        </Button>
-
-        <Button
-            variant="remove"
-            className={editAction === 'selecting_for_deletion' ? 'ring-2 ring-red-500' : ''}
-            onClick={() => setEditAction('selecting_for_deletion')}
-            tooltipContent="Remove Hotspot"
-        >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-6">
-                <path fillRule="evenodd" d="M5.625 1.5H9a3.75 3.75 0 0 1 3.75 3.75v1.875c0 1.036.84 1.875 1.875 1.875H16.5a3.75 3.75 0 0 1 3.75 3.75v7.875c0 1.035-.84 1.875-1.875 1.875H5.625a1.875 1.875 0 0 1-1.875-1.875V3.375c0-1.036.84-1.875 1.875-1.875ZM9.75 14.25a.75.75 0 0 0 0 1.5H15a.75.75 0 0 0 0-1.5H9.75Z" clipRule="evenodd" />
-                <path d="M14.25 5.25a5.23 5.23 0 0 0-1.279-3.434 9.768 9.768 0 0 1 6.963 6.963A5.23 5.23 0 0 0 16.5 7.5h-1.875a.375.375 0 0 1-.375-.375V5.25Z" />
-            </svg>
-        </Button>
-
-        <Button variant="toggle-on" onClick={onToggleEditMode} tooltipContent="Exit Edit Mode">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-6">
-                <path fillRule="evenodd" d="M15.75 2.25H21a.75.75 0 0 1 .75.75v5.25a.75.75 0 0 1-1.5 0V4.81L8.03 17.03a.75.75 0 0 1-1.06-1.06L19.19 3.75h-3.44a.75.75 0 0 1 0-1.5Zm-10.5 4.5a1.5 1.5 0 0 0-1.5 1.5v10.5a1.5 1.5 0 0 0 1.5 1.5h10.5a1.5 1.5 0 0 0 1.5-1.5V10.5a.75.75 0 0 1 1.5 0v8.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V8.25a3 3 0 0 1 3-3h8.25a.75.75 0 0 1 0 1.5H5.25Z" clipRule="evenodd" />
-            </svg>
-        </Button>
-    </>
-);
-
 const AppControls: React.FC<AppControlsProps> = ({
     onBack,
     canGoBack,
@@ -166,8 +108,16 @@ const AppControls: React.FC<AppControlsProps> = ({
         // Dependencies: the ref's current value and the callback function
     }, [contRef, onHeightChange]);
 
+    const handleActionToggle = (action: EditAction) => {
+        if (editAction === action) {
+            setEditAction('none'); // If already in this action, toggle it off (go to neutral edit state)
+        } else {
+            setEditAction(action); // Otherwise, activate this action
+        }
+    };
+
     return (
-        <Container variant="control-bar" ref={contRef}>
+        <Container variant="control-bar" ref={contRef} className="flex-wrap gap-y-2">
             <input
                 type="file"
                 ref={fileInputRef}
@@ -263,11 +213,49 @@ const AppControls: React.FC<AppControlsProps> = ({
                         )
                         : (isEditMode)
                             ? (
-                                <EditModeControls
-                                    onToggleEditMode={onToggleEditMode}
-                                    setEditAction={setEditAction}
-                                    editAction={editAction}
-                                />
+                                <>
+                                    <Button
+                                        variant="add"
+                                        className={editAction === 'adding' ? 'ring-2 ring-green-500 ring-opacity-75 focus:ring-green-500' : ''}
+                                        onClick={() => handleActionToggle('adding')}
+                                        tooltipContent="Add Hotspot"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-6">
+                                            <path fillRule="evenodd" d="M5.625 1.5H9a3.75 3.75 0 0 1 3.75 3.75v1.875c0 1.036.84 1.875 1.875 1.875H16.5a3.75 3.75 0 0 1 3.75 3.75v7.875c0 1.035-.84 1.875-1.875 1.875H5.625a1.875 1.875 0 0 1-1.875-1.875V3.375c0-1.036.84-1.875 1.875-1.875ZM12.75 12a.75.75 0 0 0-1.5 0v2.25H9a.75.75 0 0 0 0 1.5h2.25V18a.75.75 0 0 0 1.5 0v-2.25H15a.75.75 0 0 0 0-1.5h-2.25V12Z" clipRule="evenodd" />
+                                            <path d="M14.25 5.25a5.23 5.23 0 0 0-1.279-3.434 9.768 9.768 0 0 1 6.963 6.963A5.23 5.23 0 0 0 16.5 7.5h-1.875a.375.375 0 0 1-.375-.375V5.25Z" />
+                                        </svg>
+                                    </Button>
+
+                                    <Button
+                                        variant="edit"
+                                        onClick={() => handleActionToggle('selecting_for_edit')}
+                                        className={editAction === 'selecting_for_edit' ? 'ring-2 ring-blue-500 ring-opacity-75 focus:ring-blue-500' : ''} // Highlight if this mode is active
+                                        tooltipContent="Edit Hotspot"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-6">
+                                            <path fillRule="evenodd" d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0 0 16.5 9h-1.875a1.875 1.875 0 0 1-1.875-1.875V5.25A3.75 3.75 0 0 0 9 1.5H5.625ZM7.5 15a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5h-7.5A.75.75 0 0 1 7.5 15Zm.75 2.25a.75.75 0 0 0 0 1.5H12a.75.75 0 0 0 0-1.5H8.25Z" clipRule="evenodd" />
+                                            <path d="M12.971 1.816A5.23 5.23 0 0 1 14.25 5.25v1.875c0 .207.168.375.375.375H16.5a5.23 5.23 0 0 1 3.434 1.279 9.768 9.768 0 0 0-6.963-6.963Z" />
+                                        </svg>
+                                    </Button>
+
+                                    <Button
+                                        variant="remove"
+                                        className={editAction === 'selecting_for_deletion' ? 'ring-2 ring-red-500 ring-opacity-75 focus:ring-red-500' : ''}
+                                        onClick={() => handleActionToggle('selecting_for_deletion')}
+                                        tooltipContent="Remove Hotspot"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-6">
+                                            <path fillRule="evenodd" d="M5.625 1.5H9a3.75 3.75 0 0 1 3.75 3.75v1.875c0 1.036.84 1.875 1.875 1.875H16.5a3.75 3.75 0 0 1 3.75 3.75v7.875c0 1.035-.84 1.875-1.875 1.875H5.625a1.875 1.875 0 0 1-1.875-1.875V3.375c0-1.036.84-1.875 1.875-1.875ZM9.75 14.25a.75.75 0 0 0 0 1.5H15a.75.75 0 0 0 0-1.5H9.75Z" clipRule="evenodd" />
+                                            <path d="M14.25 5.25a5.23 5.23 0 0 0-1.279-3.434 9.768 9.768 0 0 1 6.963 6.963A5.23 5.23 0 0 0 16.5 7.5h-1.875a.375.375 0 0 1-.375-.375V5.25Z" />
+                                        </svg>
+                                    </Button>
+
+                                    <Button variant="toggle-on" onClick={onToggleEditMode} tooltipContent="Exit Edit Mode">
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-6">
+                                            <path fillRule="evenodd" d="M15.75 2.25H21a.75.75 0 0 1 .75.75v5.25a.75.75 0 0 1-1.5 0V4.81L8.03 17.03a.75.75 0 0 1-1.06-1.06L19.19 3.75h-3.44a.75.75 0 0 1 0-1.5Zm-10.5 4.5a1.5 1.5 0 0 0-1.5 1.5v10.5a1.5 1.5 0 0 0 1.5 1.5h10.5a1.5 1.5 0 0 0 1.5-1.5V10.5a.75.75 0 0 1 1.5 0v8.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V8.25a3 3 0 0 1 3-3h8.25a.75.75 0 0 1 0 1.5H5.25Z" clipRule="evenodd" />
+                                        </svg>
+                                    </Button>
+                                </>
                             )
                             : (
                                 <>
