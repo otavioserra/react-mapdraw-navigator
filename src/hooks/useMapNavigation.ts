@@ -4,6 +4,9 @@ import mapDataSource from '../data/map-data.json';
 
 // --- Type Definitions ---
 
+export type HotspotLinkType = 'map' | 'url';
+export type HotspotUrlTarget = '_self' | '_blank';
+
 /** Defines the properties of a clickable area on a map. */
 export interface Hotspot {
     /** Unique identifier for the hotspot. */
@@ -16,9 +19,12 @@ export interface Hotspot {
     width: number;
     /** Height of the hotspot area. */
     height: number;
-    /** ID of the map this hotspot links to. */
-    link_to_map_id: string;
     title?: string;
+    linkType: HotspotLinkType;      // This will be 'map' or 'url' after normalization.
+    link_to_map_id?: string;   // Should only be present if linkType is 'map'.
+    // linkedMapId?: string; // This was a remnant, link_to_map_id is used for map links.
+    linkedUrl?: string;
+    urlTarget?: HotspotUrlTarget;
 }
 
 /** Defines the structure of a single map's data. */
@@ -70,40 +76,62 @@ interface UseMapNavigationReturn {
     updateHotspotDetails: (targetMapId: string, hotspotIdToUpdate: string, newDetails: Partial<Omit<Hotspot, 'id' | 'x' | 'y' | 'width' | 'height'>>) => void; // Function to update hotspot details
 }
 
-/** Fallback map data loaded from the imported JSON file. */
-const originalMapData: MapCollection = mapDataSource as MapCollection;
+// Helper function to normalize loaded map data
+const normalizeMapData = (data: Record<string, any>): MapCollection => {
+    const normalizedData: MapCollection = {};
+    for (const mapId in data) {
+        if (Object.prototype.hasOwnProperty.call(data, mapId)) {
+            const mapDef = data[mapId];
+            normalizedData[mapId] = {
+                imageUrl: mapDef.imageUrl, // Ensure imageUrl is directly assigned
+                hotspots: (mapDef.hotspots || []).map((hs: any) => {
+                    let determinedLinkType = hs.linkType;
+                    if (!determinedLinkType) { // Infer linkType if not present
+                        if (hs.link_to_map_id) {
+                            determinedLinkType = 'map';
+                        } else if (hs.linkedUrl) { // For future-proofing if data might come with linkedUrl but no type
+                            determinedLinkType = 'url';
+                        }
+                    }
+
+                    const normalizedHotspot: Partial<Hotspot> = {
+                        // Spread existing properties like id, x, y, width, height, title
+                        id: hs.id,
+                        x: hs.x,
+                        y: hs.y,
+                        width: hs.width,
+                        height: hs.height,
+                        title: hs.title,
+                        linkType: determinedLinkType as HotspotLinkType,
+                    };
+
+                    if (determinedLinkType === 'map') {
+                        normalizedHotspot.link_to_map_id = hs.link_to_map_id;
+                    } else if (determinedLinkType === 'url') {
+                        normalizedHotspot.linkedUrl = hs.linkedUrl;
+                        normalizedHotspot.urlTarget = hs.urlTarget || '_blank'; // Default target if not specified
+                    }
+
+                    return normalizedHotspot as Hotspot; // Cast after building
+                }).filter((hs: Hotspot | undefined): hs is Hotspot => !!hs && !!hs.linkType) // Filter out hotspots that couldn't be normalized to a valid linkType
+            };
+        }
+    }
+    return normalizedData;
+};
 
 /**
  * Custom hook to manage navigation and state for an interactive map composed of linked images and hotspots.
  * Handles loading initial data, navigation history, adding/deleting hotspots, and managing map definitions.
  *
- * @param initialMapId The ID of the map to display initially.
+ * @param initialRootMapId The ID of the map to display initially.
  * @param initialDataJsonString Optional JSON string containing initial map data to override the default file data.
  * @returns An object containing the current map state, navigation functions, modification functions, and error status.
  */
 export const useMapNavigation = (
-    initialMapId: string,
+    initialRootMapId: string,
     initialDataJsonString?: string
 ): UseMapNavigationReturn => {
-
-    // Determine the initial map data source (provided JSON string or fallback file)
-    let initialMapData: MapCollection = originalMapData;
-    if (initialDataJsonString && initialDataJsonString.trim().length > 0) {
-        try {
-            const parsedData = JSON.parse(initialDataJsonString);
-            if (typeof parsedData === 'object' && parsedData !== null) {
-                initialMapData = parsedData as MapCollection;
-            }
-        } catch (error) {
-            console.error("Failed to parse initialDataJsonString. Falling back to file data. Error:", error);
-        }
-    }
-
-    /** State holding the complete, potentially modified, map data collection. */
-    const [managedMapData, setManagedMapData] = useState<MapCollection>(() =>
-        JSON.parse(JSON.stringify(initialMapData)) // Initialize with a deep copy
-    );
-
     /** State for the ID of the map currently being displayed. */
     const [currentMapId, setCurrentMapId] = useState<string | null>(null);
     /** State for the data needed to render the current map in the UI. */
@@ -114,6 +142,26 @@ export const useMapNavigation = (
     const [error, setError] = useState<string | null>(null);
     /** State for the current edit action */
     const [editAction, setEditAction] = useState<EditAction>('none');
+
+    /** State holding the complete, potentially modified, map data collection. */
+    const [managedMapData, setManagedMapData] = useState<MapCollection>(() => {
+        let dataToNormalize: any = mapDataSource; // Default to file data
+        if (initialDataJsonString && initialDataJsonString.trim().length > 0) {
+            try {
+                const parsedData = JSON.parse(initialDataJsonString);
+                if (typeof parsedData === 'object' && parsedData !== null) {
+                    dataToNormalize = parsedData;
+                } else {
+                    console.warn("initialDataJsonString parsed to a non-object. Using file data.");
+                }
+            } catch (parseError) {
+                console.error("Failed to parse initialDataJsonString. Falling back to file data. Error:", parseError);
+            }
+        }
+        const normalizedInitialData = normalizeMapData(dataToNormalize);
+        return JSON.parse(JSON.stringify(normalizedInitialData)); // Initialize with a deep copy of normalized data
+    });
+
 
     /**
      * Retrieves the display data (imageUrl, hotspots) for a given map ID from the managed state.
@@ -133,21 +181,29 @@ export const useMapNavigation = (
         return null;
     }, [managedMapData]); // Recalculate only if managedMapData changes
 
-    /** Effect to load the initial map when the hook mounts or initialMapId changes. */
+    /** Effect to load the initial map when the hook mounts or initialRootMapId changes. */
     useEffect(() => {
         setError(null);
-        const dataForId = getMapDataById(initialMapId);
-        if (dataForId) {
-            setCurrentMapId(initialMapId);
-            setCurrentMapDisplayData(dataForId);
-            setNavigationHistory([]); // Reset history on initial load
+        // Ensure managedMapData is populated before trying to access it
+        if (Object.keys(managedMapData).length > 0) {
+            const dataForId = getMapDataById(initialRootMapId);
+            if (dataForId) {
+                setCurrentMapId(initialRootMapId);
+                setCurrentMapDisplayData(dataForId);
+                setNavigationHistory([]); // Reset history on initial load
+            } else {
+                // Error is set within getMapDataById if not found
+                setCurrentMapId(null);
+                setCurrentMapDisplayData(null);
+                setNavigationHistory([]);
+            }
         } else {
-            // Error is set within getMapDataById if not found
+            // This case might happen if initial normalization is somehow empty
+            console.warn("Managed map data is empty on initial load effect.");
             setCurrentMapId(null);
             setCurrentMapDisplayData(null);
-            setNavigationHistory([]);
         }
-    }, [initialMapId]); // Rerun if initialMapId or the getter function changes
+    }, [initialRootMapId, getMapDataById, managedMapData]); // Rerun if initialRootMapId or the getter function or managedMapData changes
 
     /** Effect to update the display data if the underlying managedMapData changes while a map is displayed. */
     useEffect(() => {
@@ -238,22 +294,26 @@ export const useMapNavigation = (
                 targetMapDef.hotspots.push(newHotspot);
 
                 // Define the new map linked by the hotspot
-                const newMapDefinitionId = newHotspot.link_to_map_id;
-                if (newMapData[newMapDefinitionId]) {
-                    // Prevent overwriting an existing map accidentally
-                    const errorMsg = `Consistency Error: Map ID '${newMapDefinitionId}' already exists. Cannot add new definition.`;
-                    console.error(errorMsg);
-                    setError(errorMsg);
-                    // Return data with only the hotspot added, but not the new map definition
-                    // Alternatively, return prevMapData to abort the whole operation. Let's return modified data.
-                    return newMapData;
+                // Only create a new map definition if linkType is 'map', a link_to_map_id is provided,
+                // and an image URL for the new map is also provided.
+                if (newHotspot.linkType === 'map' && newHotspot.link_to_map_id && newMapImageUrl) {
+                    const newMapDefinitionId = newHotspot.link_to_map_id;
+                    if (newMapData[newMapDefinitionId]) {
+                        // Prevent overwriting an existing map accidentally
+                        const errorMsg = `Consistency Error: Map ID '${newMapDefinitionId}' already exists. Cannot add new definition.`;
+                        console.error(errorMsg);
+                        setError(errorMsg);
+                        // Return data with only the hotspot added, but not the new map definition
+                        return newMapData;
+                    }
+
+                    newMapData[newMapDefinitionId] = {
+                        imageUrl: newMapImageUrl,
+                        hotspots: [] // New map starts with no hotspots
+                    };
+                } else if (newHotspot.linkType === 'map' && !newMapImageUrl) {
+                    console.warn(`Attempted to add a 'map' link hotspot without providing an image URL for the new map '${newHotspot.link_to_map_id}'. New map definition will not be created.`);
                 }
-
-                newMapData[newMapDefinitionId] = {
-                    imageUrl: newMapImageUrl,
-                    hotspots: [] // New map starts with no hotspots
-                };
-
                 return newMapData; // Return the updated structure
             });
         },
@@ -281,7 +341,8 @@ export const useMapNavigation = (
 
                 // Find the specific hotspot object *before* filtering the array
                 const hotspotToDelete = targetMapDef.hotspots.find((hs: Hotspot) => hs.id === hotspotIdToDelete);
-                const linkedMapId = hotspotToDelete?.link_to_map_id; // Get the ID it potentially links to
+                // Get the ID it potentially links to, only if it's a map link
+                const linkedMapId = hotspotToDelete?.linkType === 'map' ? hotspotToDelete?.link_to_map_id : undefined;
 
                 const initialHotspotCount = targetMapDef.hotspots.length;
                 targetMapDef.hotspots = targetMapDef.hotspots.filter(
@@ -304,7 +365,7 @@ export const useMapNavigation = (
                         if (newMapData[mapId]?.hotspots) {
                             for (const hs of newMapData[mapId].hotspots) {
                                 // Check if any *other* hotspot still links to the same map ID
-                                if (hs.link_to_map_id === linkedMapId) {
+                                if (hs.linkType === 'map' && hs.link_to_map_id === linkedMapId) {
                                     isLinkedElsewhere = true;
                                     break; // Found a link, no need to check further in this map
                                 }
@@ -338,18 +399,20 @@ export const useMapNavigation = (
     const loadNewMapData = useCallback((jsonString: string) => {
         try {
             const parsedData = JSON.parse(jsonString);
-            if (typeof parsedData === 'object' && parsedData !== null && Object.keys(parsedData).length > 0) {
-                const newRootId = Object.keys(parsedData)[0];
-                if (!newRootId || !parsedData[newRootId]) {
+            const normalizedNewData = normalizeMapData(parsedData); // Normalize the new data
+
+            if (typeof normalizedNewData === 'object' && normalizedNewData !== null && Object.keys(normalizedNewData).length > 0) {
+                const newRootId = Object.keys(normalizedNewData)[0];
+                if (!newRootId || !normalizedNewData[newRootId]) {
                     console.error("Failed to load new data: Could not determine a valid root map ID from the JSON.");
                     setError("Failed to load new data: Invalid structure or missing root map.");
                     return;
                 }
-                setManagedMapData(parsedData as MapCollection);
+                setManagedMapData(normalizedNewData);
                 setCurrentMapId(newRootId);
                 setCurrentMapDisplayData({
-                    imageUrl: parsedData[newRootId].imageUrl,
-                    hotspots: parsedData[newRootId].hotspots
+                    imageUrl: normalizedNewData[newRootId].imageUrl,
+                    hotspots: normalizedNewData[newRootId].hotspots
                 });
                 setNavigationHistory([]);
                 setError(null);
@@ -389,7 +452,8 @@ export const useMapNavigation = (
 
                 mapDef.hotspots[hotspotIndex] = {
                     ...mapDef.hotspots[hotspotIndex],
-                    title: newDetails.title,
+                    ...newDetails, // Apply all new details
+                    // Ensure linkType consistency if it's part of newDetails
                 };
                 return newMapData;
             });

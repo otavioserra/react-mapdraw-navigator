@@ -11,7 +11,7 @@ interface MapHotspotDisplayProps {
     isEditMode: boolean;
     editAction: EditAction;
     isSelected: boolean;
-    onClick: (id: string, link: string) => void;
+    onClick: (hotspotId: string) => void; // Alterado para apenas hotspotId
     onDeleteClick: (id: string) => void;
     scale: number;
 }
@@ -66,28 +66,27 @@ const MapHotspotDisplay: React.FC<MapHotspotDisplayProps> = ({
 
     const handleHotspotClick = (e: React.MouseEvent) => {
         e.stopPropagation(); // Prevent container onClick if needed
-        onClick(hotspot.id, hotspot.link_to_map_id); // Pass both ID and link
+        onClick(hotspot.id); // Passa apenas o ID do hotspot
     };
 
     // Calculate tooltip content dynamically
     let tooltipText: string;
     if (isEditMode) {
         const displayName = hotspot.title || hotspot.id;
-        if (editAction === 'selecting_for_deletion') {
+        if (editAction === 'selecting_for_deletion' && isSelected) {
             tooltipText = isSelected ? `Deselect: ${displayName}` : `Select to Delete: ${displayName}`;
+        } else if (editAction === 'selecting_for_deletion' && !isSelected) {
+            tooltipText = `Select to Delete: ${displayName}`; // Tooltip for selecting for deletion
+        } else if (editAction === 'selecting_for_edit' || editAction === 'editing_hotspot') {
+            tooltipText = `Select to Edit: ${displayName}`; // Tooltip for selecting for edit
         } else {
-            tooltipText = `Select to Edit: ${displayName}`;
+            tooltipText = `Hotspot: ${displayName}`; // Generic edit mode
         }
     } else {
-        // Action: Use title if available for navigation
-        tooltipText = hotspot.title || `Go to map: ${hotspot.link_to_map_id}`;
+        tooltipText = hotspot.title || (hotspot.linkType === 'map' && hotspot.link_to_map_id ? `Go to map: ${hotspot.link_to_map_id}` : (hotspot.linkType === 'url' && hotspot.linkedUrl ? `Open URL: ${hotspot.linkedUrl}` : `Hotspot: ${hotspot.id}`));
     }
 
-    let title =
-        isEditMode
-            ? (editAction === 'selecting_for_deletion' ? `Select/Deselect Hotspot ID: ${hotspot.id}` : `Hotspot ID: ${hotspot.id}`)
-            : `Go to map: ${hotspot.link_to_map_id}`
-        ;
+    let title = hotspot.title || hotspot.id; // For HTML title attribute if no Radix tooltip
     if (tooltipText) {
         title = '';
     }

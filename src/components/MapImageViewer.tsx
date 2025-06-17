@@ -38,7 +38,7 @@ interface Rect {
 interface MapImageViewerProps {
     imageUrl: string;
     hotspots: Hotspot[];
-    onHotspotClick: (mapId: string) => void;
+    onHotspotClick: (hotspotId: string) => void; // Alterado para hotspotId
     isEditMode: boolean;
     onHotspotDrawn: (rect: Rect) => void;
     editAction: EditAction;
@@ -307,13 +307,18 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
         finalizeDrawing();
     };
 
-    const handleHotspotInteraction = (hotspotId: string, linkToMapId: string) => {
+    const handleHotspotInteraction = (hotspotId: string) => {
         if (isEditMode && editAction === 'selecting_for_deletion') {
             onSelectHotspotForDeletion(hotspotId);
         } else if (isEditMode && editAction === 'selecting_for_edit') {
             onSelectHotspotForEditing?.(hotspotId);
         } else if (!isEditMode) {
-            onHotspotClick(linkToMapId);
+            // Encontra o hotspot para passar seu ID.
+            // Mapdraw.tsx determinará a ação com base no tipo de link do hotspot.
+            const hotspot = hotspots.find(h => h.id === hotspotId);
+            if (hotspot) {
+                onHotspotClick(hotspot.id); // Passa o ID do hotspot
+            }
         }
     };
 

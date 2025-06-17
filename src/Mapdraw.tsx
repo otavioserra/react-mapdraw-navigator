@@ -9,7 +9,7 @@ import Heading from './components/Heading';
 import Label from './components/Label';
 import Input from './components/Input';
 import Form from './components/Form';
-import { useMapNavigation, Hotspot, MapCollection } from './hooks/useMapNavigation';
+import { useMapNavigation, Hotspot, MapCollection, HotspotLinkType, HotspotUrlTarget } from './hooks/useMapNavigation';
 import { Provider as TooltipProvider } from '@radix-ui/react-tooltip';
 import { useMapInstanceContext } from './contexts/MapInstanceContext';
 
@@ -76,32 +76,48 @@ const Mapdraw: React.FC<MapdrawProps> = ({
     const [newHotspotRect, setNewHotspotRect] = useState<RelativeRect | null>(null);
     const [newMapUrlInput, setNewMapUrlInput] = useState('');
     const [pendingGeneratedMapId, setPendingGeneratedMapId] = useState<string | null>(null);
+    const [newHotspotTitleInput, setNewHotspotTitleInput] = useState('');
+    // Novos estados para o modal
+    const [activeModalTab, setActiveModalTab] = useState<HotspotLinkType>('map');
+    const [newLinkedUrlInput, setNewLinkedUrlInput] = useState('');
+    const [newUrlTargetInput, setNewUrlTargetInput] = useState<HotspotUrlTarget>('_blank');
+
     const [hotspotToDeleteId, setHotspotToDeleteId] = useState<string | null>(null);
     const [hotspotToEditId, setHotspotToEditId] = useState<string | null>(null);
     const mapViewerRef = useRef<MapImageViewerRefHandle>(null);
     const [newRootUrlInput, setNewRootUrlInput] = useState('');
-    const [newHotspotTitleInput, setNewHotspotTitleInput] = useState('');
 
     // Configs
     const isAdminEnabled = config?.isAdminEnabled ?? false;
     const isCurrentlyOnRootMap = currentMapId === rootMapId;
 
     // --- Event Handlers ---
-    const handleHotspotClick = useCallback((mapId: string) => {
-        // Prevent navigation if in delete selection mode (or potentially other edit modes)
-        if (isEditMode && editAction === 'selecting_for_deletion') {
-            // Selection logic will happen in MapImageViewer's own click handler
+    const handleHotspotClick = useCallback((clickedHotspotId: string) => { // Parameter is hotspotId
+        if (!currentMapId || !managedMapData || !managedMapData[currentMapId]) return;
+
+        const map = managedMapData[currentMapId];
+        const hotspot = map.hotspots.find(hs => hs.id === clickedHotspotId);
+
+        if (!hotspot) {
+            console.warn(`Hotspot with id ${clickedHotspotId} not found on map ${currentMapId}`);
             return;
         }
-        // Prevent navigation if in adding mode (drawing)
-        if (isEditMode && editAction === 'adding') {
+
+        // Prevent navigation if in certain edit modes
+        if (isEditMode && (editAction === 'selecting_for_deletion' || editAction === 'adding' || editAction === 'selecting_for_edit')) {
             return;
         }
-        // Allow navigation if not in edit mode or if edit mode is 'none'
-        if (!isEditMode || editAction === 'none') {
-            navigateToChild(mapId);
+
+        if (hotspot.linkType === 'map' && hotspot.link_to_map_id) {
+            if (!isEditMode || editAction === 'none') {
+                navigateToChild(hotspot.link_to_map_id);
+            }
+        } else if (hotspot.linkType === 'url' && hotspot.linkedUrl) {
+            if (!isEditMode || editAction === 'none') {
+                window.open(hotspot.linkedUrl, hotspot.urlTarget || '_blank');
+            }
         }
-    }, [navigateToChild, isEditMode, editAction]); // Add isEditMode and editAction dependencies
+    }, [navigateToChild, isEditMode, editAction, currentMapId, managedMapData]);
 
     const handleHotspotDrawn = useCallback((rect: RelativeRect) => {
         // Only trigger if the current action is 'adding'
@@ -113,29 +129,38 @@ const Mapdraw: React.FC<MapdrawProps> = ({
         const generatedMapId = `map_${generateUniqueIdPart()}`;
         setPendingGeneratedMapId(generatedMapId);
         setNewMapUrlInput('');
+        setNewHotspotTitleInput('');
+        setActiveModalTab('map'); // Padrão para aba de mapa
+        setNewLinkedUrlInput('');
+        setNewUrlTargetInput('_blank');
         setIsModalOpen(true);
     }, [editAction]); // Add editAction dependency
 
     const handleModalCancel = useCallback(() => {
         setIsModalOpen(false);
         setNewHotspotRect(null);
+        // Resetar todos os campos do modal
         setNewMapUrlInput('');
-        setPendingGeneratedMapId(null);
+        setPendingGeneratedMapId(null); // Clear pending ID for new map
         setNewHotspotTitleInput('');
+        setActiveModalTab('map'); // Default to map tab
+        setNewLinkedUrlInput(''); // Clear URL input
+        setNewUrlTargetInput('_blank'); // Reset URL target
 
         if (editAction === 'editing_hotspot') {
             setHotspotToEditId(null);
-            setEditAction('selecting_for_edit');
-        } else if (editAction === 'adding') {
-
+            // Volta para o modo de seleção se estava editando, ou 'none' se o usuário cancelou a adição.
+            // Se estava adicionando, o editAction já é 'adding', não precisa mudar aqui.
+            // Se estava editando, voltar para 'selecting_for_edit' ou 'none'
+            setEditAction(isEditMode ? 'selecting_for_edit' : 'none'); // Ou apenas 'none' se preferir
         }
-    }, [editAction, setEditAction, setHotspotToEditId]);
+    }, [editAction, setEditAction, setHotspotToEditId, isEditMode]); // Added isEditMode
 
     const handleSelectHotspotForEditing = useCallback((selectedHotspotId: string) => {
         setHotspotToEditId(selectedHotspotId);
 
         // Directly find and populate for modal (handleInitiateEditHotspot modified)
-        if (!currentMapId || !managedMapData[currentMapId]) return;
+        if (!currentMapId || !managedMapData || !managedMapData[currentMapId]) return;
         const map = managedMapData[currentMapId];
         const hotspotToEdit = map.hotspots.find(hs => hs.id === selectedHotspotId);
 
@@ -144,126 +169,153 @@ const Mapdraw: React.FC<MapdrawProps> = ({
             return;
         }
 
-        const linkedMapDefinition = managedMapData[hotspotToEdit.link_to_map_id];
-        const linkedMapImageUrl = linkedMapDefinition?.imageUrl || '';
-
         setNewHotspotRect({ x: hotspotToEdit.x, y: hotspotToEdit.y, width: hotspotToEdit.width, height: hotspotToEdit.height });
-        setNewMapUrlInput(linkedMapImageUrl);
         setNewHotspotTitleInput(hotspotToEdit.title || '');
-        setPendingGeneratedMapId(null); // Clear this as we are not generating a new map for the link
+        setPendingGeneratedMapId(null); // Not generating new map ID when editing
+
+        if (hotspotToEdit.linkType === 'map' && hotspotToEdit.link_to_map_id) {
+            setActiveModalTab('map');
+            const linkedMapDefinition = managedMapData[hotspotToEdit.link_to_map_id];
+            setNewMapUrlInput(linkedMapDefinition?.imageUrl || '');
+            setNewLinkedUrlInput('');
+            setNewUrlTargetInput('_blank');
+        } else if (hotspotToEdit.linkType === 'url') {
+            setActiveModalTab('url');
+            setNewLinkedUrlInput(hotspotToEdit.linkedUrl || '');
+            setNewUrlTargetInput(hotspotToEdit.urlTarget || '_blank');
+            setNewMapUrlInput('');
+        }
+
         setEditAction('editing_hotspot'); // Now we are in editing_hotspot mode
         setIsModalOpen(true);
 
-    }, [currentMapId, managedMapData, setEditAction, setNewHotspotRect, setNewMapUrlInput, setNewHotspotTitleInput, setIsModalOpen, setHotspotToEditId]);
+    }, [currentMapId, managedMapData, setEditAction]); // Removed direct setters from deps, they are part of the component's scope
 
     const handleModalSubmit = useCallback((event: FormEvent) => {
         event.preventDefault(); // Prevent default form submission
 
         if (editAction === 'editing_hotspot') {
             if (!currentMapId || !hotspotToEditId) {
+                // This error should not happen if handleSelectHotspotForEditing logic is correct
                 console.error("Editing hotspot, but currentMapId or hotspotToEditId is missing.");
                 handleModalCancel();
                 return;
             }
-
-            const hotspotBeingEdited = managedMapData[currentMapId]?.hotspots.find(hs => hs.id === hotspotToEditId);
+            // Ensure managedMapData is available
+            const hotspotBeingEdited = managedMapData?.[currentMapId]?.hotspots.find(hs => hs.id === hotspotToEditId);
             if (!hotspotBeingEdited) {
+                // Este erro também não deveria acontecer
                 console.error("Hotspot to edit definition not found for update.");
                 handleModalCancel();
                 return;
             }
 
             const newTitleForHotspot = newHotspotTitleInput.trim() || undefined;
-            const newImageUrlForLinkedMap = newMapUrlInput.trim();
 
-            updateHotspotDetails(currentMapId, hotspotToEditId, { title: newTitleForHotspot });
-
-            if (newImageUrlForLinkedMap) {
-                let isValidUrl = false;
-                try {
-                    new URL(newImageUrlForLinkedMap);
-                    isValidUrl = true; // For absolute URLs
-                } catch (_) {
-                    if (newImageUrlForLinkedMap.startsWith('/')) { // For relative local paths
-                        isValidUrl = true;
-                    }
+            if (activeModalTab === 'map') {
+                const newImageUrlForLinkedMap = newMapUrlInput.trim();
+                if (!hotspotBeingEdited.link_to_map_id) {
+                    // If changing to 'map' and there was no link_to_map_id, should one be generated?
+                    // For now, assume if it's 'map', link_to_map_id already exists or user can't change linked map ID here.
+                    // This part might need more logic if we want to allow changing the linked map to a new one.
+                    console.error("Cannot set to map link without a link_to_map_id.");
+                    alert("Error: Linked map ID (link_to_map_id) is missing.");
+                    return;
                 }
-
-                if (isValidUrl) {
-                    const originalLinkedMapImageUrl = managedMapData[hotspotBeingEdited.link_to_map_id]?.imageUrl;
-                    if (originalLinkedMapImageUrl !== newImageUrlForLinkedMap) {
-                        updateMapImageUrl(hotspotBeingEdited.link_to_map_id, newImageUrlForLinkedMap);
-                    }
+                if (!newImageUrlForLinkedMap) {
+                    alert("Image URL for the linked map cannot be empty.");
+                    return;
                 }
+                try { new URL(newImageUrlForLinkedMap); } catch (_) { if (!newImageUrlForLinkedMap.startsWith('/')) { alert('Please enter a valid image URL for the linked map...'); return; } }
+
+
+                updateHotspotDetails(currentMapId, hotspotToEditId, {
+                    title: newTitleForHotspot,
+                    linkType: 'map',
+                    link_to_map_id: hotspotBeingEdited.link_to_map_id, // Keep the linked map ID
+                    linkedUrl: undefined,
+                    urlTarget: undefined
+                });
+
+                // Update the linked map's image URL if it changed
+                const originalLinkedMapImageUrl = managedMapData?.[hotspotBeingEdited.link_to_map_id]?.imageUrl;
+                if (originalLinkedMapImageUrl !== newImageUrlForLinkedMap) {
+                    updateMapImageUrl(hotspotBeingEdited.link_to_map_id, newImageUrlForLinkedMap);
+                }
+            } else { // activeModalTab === 'url'
+                const newUrlToLink = newLinkedUrlInput.trim();
+                if (!newUrlToLink) {
+                    alert("The URL to link to cannot be empty.");
+                    return;
+                }
+                try { new URL(newUrlToLink); } catch (_) { alert('Please enter a valid URL to link to...'); return; }
+
+                updateHotspotDetails(currentMapId, hotspotToEditId, {
+                    title: newTitleForHotspot,
+                    linkType: 'url',
+                    linkedUrl: newUrlToLink,
+                    urlTarget: newUrlTargetInput,
+                    link_to_map_id: undefined // Ensure link_to_map_id is removed/undefined
+                });
             }
 
+            handleModalCancel();
+            setEditAction('selecting_for_edit'); // Revert to selection mode
+            return;
+        }
+
+        // Logic to ADD new hotspot (editAction === 'adding')
+        if (!currentMapId || !newHotspotRect) {
+            console.error("Cannot add hotspot: missing currentMapId or hotspot rectangle data.");
+            alert("An internal error occurred. Please try again.");
             handleModalCancel();
             return;
         }
 
-        // --- Step 3: Add check for pendingGeneratedMapId ---
-        if (!pendingGeneratedMapId) {
-            console.error("Submission failed: No generated Map ID available.");
-            alert("An internal error occurred. Please try creating the hotspot again.");
-            handleModalCancel(); // Close modal and clear state
-            return;
-        }
-        // Use the generated ID from state for further processing
-        const newMapId = pendingGeneratedMapId;
-        // --- End Step 3 check ---
+        const newHotspotId = `hs_${currentMapId}_${generateUniqueIdPart()}`;
+        let newHotspot: Hotspot;
 
-        // Ensure a map is currently loaded before trying to add a hotspot
-        // (Keep this check from previous steps)
-        if (!currentMapId) {
-            alert("Cannot add hotspot: No map is currently loaded.");
-            console.error("handleModalSubmit called but currentMapId is null.");
-            return; // Stop the submission
-        }
+        if (activeModalTab === 'map') {
+            if (!pendingGeneratedMapId) {
+                console.error("Submission failed: No generated Map ID available for map link.");
+                alert("Internal error: Missing generated map ID. Please try again.");
+                handleModalCancel();
+                return;
+            }
+            const newMapImage = newMapUrlInput.trim();
+            if (!newMapImage) {
+                alert("Please fill in the Image URL for the new map.");
+                return;
+            }
+            try { new URL(newMapImage); } catch (_) { if (!newMapImage.startsWith('/')) { alert('Please enter a valid image URL for the new map...'); return; } }
 
-        // Ensure hotspot rectangle data exists
-        // (Keep this check from previous steps)
-        if (!newHotspotRect) {
-            console.error("handleModalSubmit called but newHotspotRect is null.");
-            return; // Stop the submission
-        }
+            newHotspot = {
+                id: newHotspotId, ...newHotspotRect, title: newHotspotTitleInput.trim() || undefined,
+                linkType: 'map', link_to_map_id: pendingGeneratedMapId,
+            };
+            addHotspotAndMapDefinition(currentMapId, newHotspot, newMapImage);
+        } else { // activeModalTab === 'url'
+            const urlToLink = newLinkedUrlInput.trim();
+            if (!urlToLink) {
+                alert("Please fill in the URL to link to.");
+                return;
+            }
+            try { new URL(urlToLink); } catch (_) { alert('Please enter a valid URL to link to...'); return; }
 
-        // Get and validate URL input
-        const newMapUrl = newMapUrlInput.trim(); // <<< Keep getting URL from input state
-        if (!newMapUrl) { // <<< Keep URL validation
-            alert("Please fill in the Map URL."); // Adjusted alert message
-            return;
-        }
-        // Basic URL validation (optional but recommended)
-        try { new URL(newMapUrl); } catch (_) { if (!newMapUrl.startsWith('/')) { alert('Please enter a valid image URL...'); return; } }
-
-
-        // Check for duplicate ID using the generated newMapId
-        // (Keep this check from previous steps)
-        if (managedMapData && managedMapData[newMapId]) {
-            alert(`Error: Map ID "${newMapId}" already exists. This should not happen with generated IDs, but checking anyway.`);
-            // If this happens, the ID generation logic might need improvement
-            return;
+            newHotspot = {
+                id: newHotspotId, ...newHotspotRect, title: newHotspotTitleInput.trim() || undefined,
+                linkType: 'url', linkedUrl: urlToLink, urlTarget: newUrlTargetInput,
+            };
+            addHotspotAndMapDefinition(currentMapId, newHotspot, ''); // Passa URL de imagem vazia, pois não cria novo mapa
+            // For 'url' type, newMapImageUrl is not used by addHotspotAndMapDefinition
         }
 
-        // Create new hotspot object
-        // (Confirm link_to_map_id uses the generated newMapId)
-        const newHotspot: Hotspot = {
-            id: `hs_${currentMapId}_${generateUniqueIdPart()}`,
-            x: newHotspotRect.x,
-            y: newHotspotRect.y,
-            width: newHotspotRect.width,
-            height: newHotspotRect.height,
-            link_to_map_id: newMapId, // <<< Correctly uses the generated ID
-            title: newHotspotTitleInput.trim() || undefined,
-        };
-
-        // Call hook function
-        // (Confirm arguments are correct: currentMapId, newHotspot, newMapUrl)
-        addHotspotAndMapDefinition(currentMapId, newHotspot, newMapUrl);
-
-        // Reset state and close modal
-        // (Keep cleanup logic - calling handleModalCancel covers resetting pendingGeneratedMapId)
         handleModalCancel();
+        // After adding, revert to 'adding' mode to allow adding more, or 'none'?
+        // setEditAction('adding'); // To continue adding
+        // ou
+        setEditAction('none'); // To revert to neutral edit state
+
     }, [
         currentMapId,
         newHotspotRect,
@@ -277,9 +329,8 @@ const Mapdraw: React.FC<MapdrawProps> = ({
         hotspotToEditId,
         updateHotspotDetails,
         updateMapImageUrl,
-        setEditAction
+        setEditAction, activeModalTab, newLinkedUrlInput, newUrlTargetInput
     ]);
-    // --- End of handleModalSubmit modification ---
 
     // Handler for when a hotspot is clicked in 'selecting_for_deletion' mode
     const handleSelectHotspotForDeletion = useCallback((hotspotId: string) => {
@@ -292,7 +343,6 @@ const Mapdraw: React.FC<MapdrawProps> = ({
     }, []);
 
     // Handler to actually delete the selected hotspot
-    // This will be called by the delete button rendered in MapImageViewer
     const handleConfirmDeletion = useCallback((hotspotIdToDelete: string) => {
         if (!currentMapId) {
             console.error("Cannot delete hotspot: currentMapId is not set.");
@@ -300,20 +350,22 @@ const Mapdraw: React.FC<MapdrawProps> = ({
         }
         deleteHotspot(currentMapId, hotspotIdToDelete);
         setHotspotToDeleteId(null); // Clear selection after deletion
-        // Optional: setEditAction('none') or stay in selection mode? Let's stay.
-    }, [currentMapId, deleteHotspot]); // Include deleteHotspot from the hook
+    }, [currentMapId, deleteHotspot]);
 
-    // Replace the existing toggleEditMode function (around line 140) with this:
     const toggleEditMode = useCallback(() => {
         setIsEditMode(prevIsEditMode => {
-            const exitingEditMode = prevIsEditMode; // If it was true, we are now exiting
+            const exitingEditMode = prevIsEditMode;
             if (exitingEditMode) {
-                // Reset the edit action when exiting edit mode
-                setEditAction('none'); // Use the setter from the hook
+                setEditAction('none'); // Reset action
+                setHotspotToDeleteId(null); // Clear deletion selection when exiting edit mode
+                setHotspotToEditId(null);   // Clear edit selection
+            } else {
+                // When entering edit mode, a default action can be set or left as 'none'
+                // setEditAction('none'); // ou 'adding' se quiser que seja o padrão
             }
-            return !prevIsEditMode; // Toggle the local state
+            return !prevIsEditMode;
         });
-    }, [setEditAction]); // Add setEditAction from the hook as a dependency
+    }, [setEditAction]);
 
     // --- Keep handleExportJson function ---
     const handleExportJson = useCallback(() => {
@@ -505,50 +557,72 @@ const Mapdraw: React.FC<MapdrawProps> = ({
                     <Heading level={2} className="text-xl font-semibold mb-5 text-gray-800">
                         {editAction === 'editing_hotspot' ? 'Edit Hotspot Details' : 'Add New Hotspot Details'}
                     </Heading>
+
+                    {/* Tabs to switch between link types */}
+                    {editAction !== 'editing_hotspot' && ( // Show tabs only when adding, type is fixed by selection when editing
+                        <Container variant="default" className="mb-4 flex border-b">
+                            <button
+                                type="button"
+                                onClick={() => setActiveModalTab('map')}
+                                className={`px-4 py-2 -mb-px border-b-2 font-medium text-sm ${activeModalTab === 'map' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                            >
+                                Link to New Map
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setActiveModalTab('url')}
+                                className={`px-4 py-2 -mb-px border-b-2 font-medium text-sm ${activeModalTab === 'url' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                            >
+                                Link to URL
+                            </button>
+                        </Container>
+                    )}
+
                     <Form onSubmit={handleModalSubmit}>
-                        {(editAction === 'adding' && pendingGeneratedMapId) && (
-                            // Use Container for consistent form grouping (optional)
-                            <Container variant="default" className="mb-4">
-                                <p className="text-sm text-gray-600">
-                                    Generated Map ID:
-                                    <strong className="ml-2 font-mono select-all bg-gray-100 px-1 py-0.5 rounded">
-                                        {pendingGeneratedMapId}
-                                    </strong>
-                                </p>
-                            </Container>
+                        {/* Hotspot Title Field (common to both types) */}
+                        <Container variant="form-group">
+                            <Label htmlFor="hotspotTitle">Hotspot Title (Optional):</Label>
+                            <Input type="text" id="hotspotTitle" value={newHotspotTitleInput} onChange={(e) => setNewHotspotTitleInput(e.target.value)} placeholder="Enter a display title" className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" autoFocus={activeModalTab === 'map'} />
+                        </Container>
+
+                        {/* Fields for Link to New Map */}
+                        {activeModalTab === 'map' && (
+                            <>
+                                {(editAction === 'adding' && pendingGeneratedMapId) && (
+                                    <Container variant="default" className="mb-4">
+                                        <p className="text-sm text-gray-600">
+                                            Generated Map ID:
+                                            <strong className="ml-2 font-mono select-all bg-gray-100 px-1 py-0.5 rounded">
+                                                {pendingGeneratedMapId}
+                                            </strong>
+                                        </p>
+                                    </Container>
+                                )}
+                                <Container variant="form-group">
+                                    <Label htmlFor="mapImageUrl" className="block text-gray-700 text-sm font-medium mb-2">
+                                        {editAction === 'editing_hotspot' ? 'Image URL for Linked Map:' : 'New Map Image URL:'}
+                                    </Label>
+                                    <Input type="text" id="mapImageUrl" value={newMapUrlInput} onChange={(e) => setNewMapUrlInput(e.target.value)} className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="Enter image URL (http://... or /images/...)" required={activeModalTab === 'map'} autoFocus={activeModalTab === 'map' && !newHotspotTitleInput} />
+                                </Container>
+                            </>
                         )}
 
-                        <Container variant="form-group">
-                            <Label htmlFor="hotspotTitle" /* ... */ >
-                                Hotspot Title (Optional):
-                            </Label>
-                            <Input
-                                type="text" id="hotspotTitle"
-                                value={newHotspotTitleInput}
-                                onChange={(e) => setNewHotspotTitleInput(e.target.value)}
-                                placeholder="Enter a display title"
-                                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                                autoFocus
-                            />
-                        </Container>
-
-                        {/* Use Container for form group */}
-                        <Container variant="form-group">
-                            {/* Use Label component */}
-                            <Label htmlFor="mapUrl" className="block text-gray-700 text-sm font-medium mb-2">
-                                {editAction === 'editing_hotspot' ? 'Link to Map Image URL:' : 'New Map Image URL (for linked map):'}
-                            </Label>
-                            {/* Use Input component */}
-                            <Input
-                                type="text"
-                                id="mapUrl"
-                                value={newMapUrlInput}
-                                onChange={(e) => setNewMapUrlInput(e.target.value)}
-                                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                                placeholder="Enter image URL (http://... or /images/...)"
-                                required
-                            />
-                        </Container>
+                        {/* Fields for Link to URL */}
+                        {activeModalTab === 'url' && (
+                            <>
+                                <Container variant="form-group">
+                                    <Label htmlFor="linkedUrl" className="block text-gray-700 text-sm font-medium mb-2">URL to Link:</Label>
+                                    <Input type="url" id="linkedUrl" value={newLinkedUrlInput} onChange={(e) => setNewLinkedUrlInput(e.target.value)} className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="https://example.com" required={activeModalTab === 'url'} autoFocus={activeModalTab === 'url' && !newHotspotTitleInput} />
+                                </Container>
+                                <Container variant="form-group">
+                                    <Label htmlFor="urlTarget" className="block text-gray-700 text-sm font-medium mb-2">Open Link In:</Label>
+                                    <select id="urlTarget" value={newUrlTargetInput} onChange={(e) => setNewUrlTargetInput(e.target.value as HotspotUrlTarget)} className="block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                        <option value="_blank">New Tab/Window (_blank)</option>
+                                        <option value="_self">Same Tab/Window (_self)</option>
+                                    </select>
+                                </Container>
+                            </>
+                        )}
 
                         {/* Use Container for modal actions */}
                         <Container variant="modal-actions">
@@ -557,15 +631,12 @@ const Mapdraw: React.FC<MapdrawProps> = ({
                                 type="button"
                                 variant="default" // Or a specific 'cancel' variant if you add one
                                 onClick={handleModalCancel}
-                            // Add base classes if needed, or handle in Button component variants
-                            // className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
                             >
                                 Cancel
                             </Button>
                             <Button
                                 type="submit"
                                 variant="primary" // Use primary variant
-                            // className="px-4 py-2 bg-indigo-600 text-white rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                             >
                                 {editAction === 'editing_hotspot' ? 'Save Changes' : 'Add Hotspot'}
                             </Button>
