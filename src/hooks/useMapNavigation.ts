@@ -1,5 +1,5 @@
 // src/hooks/useMapNavigation.ts
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import mapDataSource from '../data/map-data.json';
 
 // --- Type Definitions ---
@@ -162,48 +162,43 @@ export const useMapNavigation = (
         return JSON.parse(JSON.stringify(normalizedInitialData)); // Initialize with a deep copy of normalized data
     });
 
+    // Ref to store the previous initialRootMapId to detect actual prop changes
+    const prevInitialRootMapIdRef = useRef<string | null>(null);
 
     /**
-     * Retrieves the display data (imageUrl, hotspots) for a given map ID from the managed state.
-     * Sets an error if the map ID is not found.
-     * @param mapId The ID of the map to retrieve data for.
-     * @returns The MapDisplayData if found, otherwise null.
+     * Effect to load the map specified by `initialRootMapId` when the hook mounts
+     * or when the `initialRootMapId` prop itself changes.
+     * This should not reset to the root map if `managedMapData` changes for other reasons
+     * (e.g., adding a hotspot to a non-root map).
      */
-    const getMapDataById = useCallback((mapId: string | null): MapDisplayData | null => {
-        if (!mapId) return null;
-        const mapDef = managedMapData[mapId];
-        if (mapDef) {
-            return { imageUrl: mapDef.imageUrl, hotspots: mapDef.hotspots };
-        }
-        const errorMsg = `Error loading map: Map data not found for ID: '${mapId}'`;
-        console.error(errorMsg);
-        setError(errorMsg);
-        return null;
-    }, [managedMapData]); // Recalculate only if managedMapData changes
-
-    /** Effect to load the initial map when the hook mounts or initialRootMapId changes. */
     useEffect(() => {
         setError(null);
-        // Ensure managedMapData is populated before trying to access it
-        if (Object.keys(managedMapData).length > 0) {
-            const dataForId = getMapDataById(initialRootMapId);
-            if (dataForId) {
+
+        // Reset to initialRootMapId if:
+        // 1. It's the very first load (currentMapId is null).
+        // 2. OR the initialRootMapId prop has actually changed to a new valid map ID.
+        if (currentMapId === null || (initialRootMapId !== prevInitialRootMapIdRef.current)) {
+            const targetMapDef = managedMapData[initialRootMapId];
+            if (targetMapDef) {
                 setCurrentMapId(initialRootMapId);
-                setCurrentMapDisplayData(dataForId);
-                setNavigationHistory([]); // Reset history on initial load
+                setCurrentMapDisplayData({ imageUrl: targetMapDef.imageUrl, hotspots: targetMapDef.hotspots });
+                setNavigationHistory([]);
+                // console.log(`useMapNavigation: Set current map to initial/new root: ${initialRootMapId}`);
             } else {
-                // Error is set within getMapDataById if not found
+                const errorMsg = `Error loading initial map: Map data not found for ID: '${initialRootMapId}' in current map data.`;
+                console.error(errorMsg, 'Current managedMapData keys:', Object.keys(managedMapData));
+                setError(errorMsg);
                 setCurrentMapId(null);
                 setCurrentMapDisplayData(null);
                 setNavigationHistory([]);
             }
-        } else {
-            // This case might happen if initial normalization is somehow empty
-            console.warn("Managed map data is empty on initial load effect.");
-            setCurrentMapId(null);
-            setCurrentMapDisplayData(null);
         }
-    }, [initialRootMapId, getMapDataById, managedMapData]); // Rerun if initialRootMapId or the getter function or managedMapData changes
+        // Update the ref *after* the logic for the current render has run.
+        prevInitialRootMapIdRef.current = initialRootMapId;
+
+    }, [initialRootMapId, managedMapData, currentMapId]); // currentMapId is added to allow the initial check (currentMapId === null)
+    // managedMapData is needed as targetMapDef is read from it.
+    // initialRootMapId is the primary driver for this effect.
 
     /** Effect to update the display data if the underlying managedMapData changes while a map is displayed. */
     useEffect(() => {
@@ -215,12 +210,14 @@ export const useMapNavigation = (
                     hotspots: [...currentData.hotspots],
                 });
             } else {
+                // Current map ID is no longer valid in managedMapData (e.g., deleted)
+                console.warn(`Current map ID '${currentMapId}' no longer found in managed data. Clearing display.`);
                 setCurrentMapDisplayData(null);
             }
         } else {
             setCurrentMapDisplayData(null);
         }
-    }, [managedMapData, currentMapId, setCurrentMapDisplayData]);
+    }, [managedMapData, currentMapId]); // setCurrentMapDisplayData is stable and can be omitted
 
     /**
      * Navigates to a new map specified by its ID.
