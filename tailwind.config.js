@@ -12,6 +12,8 @@ export default {
         'w-[calc(100% - 8px)]',
         'w-[calc(100% - 4px)]',
         'w-[calc(100% - 2px)]',
+        'h-[1000px]',
+        'h-[800px]',
         'h-[600px]',
         'h-[500px]',
         'h-[300px]',
