@@ -83,49 +83,92 @@ if (mapContainers.length === 0) {
     mapContainers.forEach((containerElement, index) => {
         // Only process elements not already marked (e.g., by previous script runs)
         if (!containerElement.dataset.elementInitialized) {
-            containerElement.dataset.elementInitialized = 'true';
-            // --- Add ID dynamically ---
-            const elementId = `react-mapdraw-navigator-${index + 1}`;
-            containerElement.id = elementId;
+            const prepareAndStoreProps = async () => {
+                containerElement.dataset.elementInitialized = 'true'; // Mark as processed by this script run
+                // --- Add ID dynamically ---
+                const elementId = containerElement.id || `react-mapdraw-navigator-${index + 1}`;
+                containerElement.id = elementId;
 
-            // --- Read initial data/config needed by Wrapper ---
-            const DEFAULT_ROOT_MAP_ID = 'rootMap';
-            let rootMapId: string = DEFAULT_ROOT_MAP_ID;
-            let initialDataJsonString: string | undefined = undefined;
-            const rootIdOverride = containerElement.dataset.mapdrawRootId;
-            const jsonContent = containerElement.textContent?.trim(); // Read BEFORE potentially clearing
-            const baseWidth = parseInt(containerElement.dataset.baseWidth || '', 10) || DEFAULT_CANVAS_WIDTH;
-            const baseHeight = parseInt(containerElement.dataset.baseHeight || '', 10) || DEFAULT_CANVAS_HEIGHT;
-            const config = {
-                isAdminEnabled: containerElement.dataset.enableAdmin === 'true',
-                baseDims: { width: baseWidth, height: baseHeight }
-            };
+                // --- Determine initialDataJsonString with priority ---
+                let dataJsonString: string | undefined = undefined;
+                const textContentJson = containerElement.textContent?.trim(); // Priority 1: Text content
+                const jsonFileUrl = containerElement.dataset.mapdrawJsonFileUrl; // Priority 2: File URL attribute
 
-            if (rootIdOverride) { rootMapId = rootIdOverride; }
-            if (jsonContent && jsonContent.length > 0) { /* ... parse json ... */
-                try {
-                    const parsedData = JSON.parse(jsonContent);
-                    if (typeof parsedData === 'object' && parsedData !== null && Object.keys(parsedData).length > 0) {
-                        initialDataJsonString = jsonContent;
-                        if (!rootIdOverride) {
-                            const firstKey = Object.keys(parsedData)[0];
-                            if (firstKey) { rootMapId = firstKey; }
+                if (textContentJson && textContentJson.length > 0) {
+                    try {
+                        JSON.parse(textContentJson); // Validate if it's JSON
+                        dataJsonString = textContentJson;
+                        console.log(`Mapdraw [${elementId}]: Using textContent as JSON data.`);
+                    } catch (e) {
+                        console.warn(`Mapdraw [${elementId}]: textContent is not valid JSON. Will check for file URL. Error:`, e);
+                        // If textContent is invalid, then try jsonFileUrl
+                        if (jsonFileUrl) {
+                            try {
+                                const response = await fetch(jsonFileUrl);
+                                if (!response.ok) {
+                                    throw new Error(`Failed to fetch ${jsonFileUrl}: ${response.statusText}`);
+                                }
+                                const fetchedJson = await response.text();
+                                JSON.parse(fetchedJson); // Validate
+                                dataJsonString = fetchedJson;
+                                console.log(`Mapdraw [${elementId}]: Successfully loaded JSON data from URL: ${jsonFileUrl}`);
+                            } catch (fetchError) {
+                                console.error(`Mapdraw [${elementId}]: Error fetching or parsing JSON from URL '${jsonFileUrl}'. No external data will be used. Error:`, fetchError);
+                            }
                         }
                     }
-                } catch (e) { console.error("Failed to parse JSON in observer setup.", e); }
-            }
-            // --- End reading data ---
+                } else if (jsonFileUrl) { // textContentJson is empty or not present, try file URL
+                    try {
+                        const response = await fetch(jsonFileUrl);
+                        if (!response.ok) {
+                            throw new Error(`Failed to fetch ${jsonFileUrl}: ${response.statusText}`);
+                        }
+                        const fetchedJson = await response.text();
+                        JSON.parse(fetchedJson); // Validate
+                        dataJsonString = fetchedJson;
+                        console.log(`Mapdraw [${elementId}]: Successfully loaded JSON data from URL: ${jsonFileUrl}`);
+                    } catch (e) {
+                        console.error(`Mapdraw [${elementId}]: Error fetching or parsing JSON from URL '${jsonFileUrl}'. No external data will be used. Error:`, e);
+                    }
+                }
+                // If both are invalid/missing, dataJsonString remains undefined, hook will use its default.
 
-            // Clean div content and remove hidden to start.
-            containerElement.textContent = '';
-            containerElement.classList.remove('hidden');
+                // --- Determine rootMapId ---
+                const DEFAULT_ROOT_MAP_ID = 'rootMap';
+                let finalRootMapId = containerElement.dataset.mapdrawRootId || DEFAULT_ROOT_MAP_ID;
+                if (dataJsonString && !containerElement.dataset.mapdrawRootId) { // If data loaded and no override, try to infer
+                    try {
+                        const parsedData = JSON.parse(dataJsonString);
+                        const firstKey = Object.keys(parsedData)[0];
+                        if (firstKey) { finalRootMapId = firstKey; }
+                    } catch (e) { /* Keep default/override if parsing fails */ }
+                }
 
-            // Store the props needed for rendering later
-            elementPropsMap.set(containerElement, { rootMapId, initialDataJsonString, config });
+                // --- Config ---
+                const baseWidth = parseInt(containerElement.dataset.baseWidth || '', 10) || DEFAULT_CANVAS_WIDTH;
+                const baseHeight = parseInt(containerElement.dataset.baseHeight || '', 10) || DEFAULT_CANVAS_HEIGHT;
+                const finalConfig = {
+                    isAdminEnabled: containerElement.dataset.enableAdmin === 'true',
+                    baseDims: { width: baseWidth, height: baseHeight }
+                };
 
-            // Start observing the element
-            observer.observe(containerElement);
-            console.log("Observing container element:", elementId);
+                // Clean div content (AFTER reading textContentJson) and remove hidden class
+                containerElement.textContent = '';
+                containerElement.classList.remove('hidden');
+
+                // Store the props needed for rendering when element becomes visible
+                elementPropsMap.set(containerElement, {
+                    rootMapId: finalRootMapId,
+                    initialDataJsonString: dataJsonString,
+                    config: finalConfig
+                });
+
+                // Start observing the element
+                observer.observe(containerElement);
+                console.log(`Mapdraw [${elementId}]: Now observing for visibility.`);
+            };
+
+            prepareAndStoreProps(); // Call the async function to prepare props and start observing
         }
     });
 }
