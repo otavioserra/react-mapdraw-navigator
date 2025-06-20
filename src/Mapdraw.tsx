@@ -9,7 +9,7 @@ import Heading from './components/Heading';
 import Label from './components/Label';
 import Input from './components/Input';
 import Form from './components/Form';
-import { useMapNavigation, Hotspot, MapCollection, HotspotLinkType, HotspotUrlTarget } from './hooks/useMapNavigation';
+import { useMapNavigation, Hotspot, MapCollection, HotspotLinkType, HotspotUrlTarget, MapViewTransform } from './hooks/useMapNavigation';
 import { Provider as TooltipProvider } from '@radix-ui/react-tooltip';
 import { useMapInstanceContext } from './contexts/MapInstanceContext';
 
@@ -65,7 +65,9 @@ const Mapdraw: React.FC<MapdrawProps> = ({
         deleteHotspot,
         loadNewMapData,
         updateHotspotDetails,
-        updateMapImageUrl
+        updateMapImageUrl,
+        mapViewTransforms,
+        updateMapViewTransform
     } = useMapNavigation(rootMapId, initialDataJsonString);
 
     const { rootContainerElement } = useMapInstanceContext();
@@ -534,6 +536,8 @@ const Mapdraw: React.FC<MapdrawProps> = ({
                         isFullscreenActive={isFullscreenActive}
                         isWindowMaximized={isWindowMaximized}
                         onSelectHotspotForEditing={handleSelectHotspotForEditing}
+                        initialTransformForCurrentMap={currentMapId ? mapViewTransforms[currentMapId] : undefined}
+                        onTransformChange={currentMapId && updateMapViewTransform ? (transform) => updateMapViewTransform(currentMapId, transform) : undefined}
                     />
                 )}
 

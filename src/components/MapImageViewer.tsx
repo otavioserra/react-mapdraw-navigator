@@ -38,7 +38,7 @@ interface Rect {
 interface MapImageViewerProps {
     imageUrl: string;
     hotspots: Hotspot[];
-    onHotspotClick: (hotspotId: string) => void; // Alterado para hotspotId
+    onHotspotClick: (hotspotId: string) => void;
     isEditMode: boolean;
     onHotspotDrawn: (rect: Rect) => void;
     editAction: EditAction;
@@ -51,6 +51,8 @@ interface MapImageViewerProps {
     onSelectHotspotForEditing?: (hotspotId: string) => void;
     isWindowMaximized?: boolean;
     isModalOpen?: boolean;
+    initialTransformForCurrentMap?: TransformData;
+    onTransformChange?: (transform: TransformData) => void;
 }
 
 const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(({
@@ -68,7 +70,9 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
     isFullscreenActive,
     onSelectHotspotForEditing,
     isWindowMaximized,
-    isModalOpen
+    isModalOpen,
+    initialTransformForCurrentMap,
+    onTransformChange
 }, ref) => {
     // States
     const [isDrawing, setIsDrawing] = useState<boolean>(false);
@@ -84,33 +88,30 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
     const canvasWidth = baseDims?.width ?? DEFAULT_CANVAS_WIDTH;
     const canvasHeight = baseDims?.height ?? DEFAULT_CANVAS_HEIGHT;
 
+    const imgAnimationTime = 1;
+
     // Refs
     const containerRef = useRef<HTMLDivElement>(null);
     const containerCanvaRef = useRef<HTMLDivElement>(null);
     const imgRef = useRef<HTMLImageElement>(null);
     const transformWrapperRef = useRef<ReactZoomPanPinchRef>(null);
+    const isReadyToSaveChangesRef = useRef<boolean>(false); // Controls when transform changes are saved
 
     // Helper Function to get Mouse Coordinates Relative to Container
     const getRelativeCoords = (event: MouseEvent<HTMLDivElement>): Coords | null => {
-
         if (!containerCanvaRef.current) return null;
         const rectCanva = containerCanvaRef.current.getBoundingClientRect();
-
         const x = (event.clientX - rectCanva.left);
         const y = (event.clientY - rectCanva.top);
-
         return { x, y };
     };
 
     // Mouse Event Handlers for Drawing
     const handleMouseDown = (event: MouseEvent<HTMLDivElement>) => {
         if (!isEditMode || editAction !== 'adding') return;
-
         event.preventDefault();
-
         const coords = getRelativeCoords(event);
         if (!coords) return;
-
         setIsDrawing(true);
         setStartCoords(coords);
         setCurrentRect({ x: coords.x, y: coords.y, width: 0, height: 0 });
@@ -118,21 +119,16 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
 
     const handleMouseMove = (event: MouseEvent<HTMLDivElement>) => {
         if (!isDrawing || !startCoords) return;
-
         const currentRelativeCoords = getRelativeCoords(event);
-
         if (!currentRelativeCoords) return;
-
         const startRelativeX = startCoords.x;
         const startRelativeY = startCoords.y;
         const currentRelativeX = currentRelativeCoords.x;
         const currentRelativeY = currentRelativeCoords.y;
-
         const x = Math.min(startRelativeX, currentRelativeX);
         const y = Math.min(startRelativeY, currentRelativeY);
         const width = Math.abs(startRelativeX - currentRelativeX);
         const height = Math.abs(startRelativeY - currentRelativeY);
-
         setCurrentRect({ x, y, width, height });
     };
 
@@ -143,16 +139,11 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
             setCurrentRect(null);
             return;
         }
-
         setIsDrawing(false);
-
         if (containerCanvaRef.current && currentRect.width > 1 && currentRect.height > 1) {
-
-            // Use transform state variables updated by onTransformed callback
             const scale = transformCurrentData.scale;
             const positionX = transformCurrentData.x;
             const positionY = transformCurrentData.y;
-
             const drawnRectOnImageX = (currentRect.x - positionX) / scale;
             const drawnRectOnImageY = (currentRect.y - positionY) / scale;
             const drawnRectOnImageWidth = currentRect.width / scale;
@@ -164,34 +155,26 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
                 setCurrentRect(null);
                 return;
             }
-
             let relativeRect: Rect = {
                 x: (drawnRectOnImageX / canvasWidth) * 100,
                 y: (drawnRectOnImageY / canvasHeight) * 100,
                 width: (drawnRectOnImageWidth / canvasWidth) * 100,
                 height: (drawnRectOnImageHeight / canvasHeight) * 100,
             };
-
-            // Clamp percentage values
             relativeRect.x = Math.max(0, Math.min(relativeRect.x, 100));
             relativeRect.y = Math.max(0, Math.min(relativeRect.y, 100));
             relativeRect.width = Math.max(0.1, Math.min(relativeRect.width, 100 - relativeRect.x));
             relativeRect.height = Math.max(0.1, Math.min(relativeRect.height, 100 - relativeRect.y));
-
             onHotspotDrawn(relativeRect);
         }
-
         setStartCoords(null);
         setCurrentRect(null);
     };
 
-    // Helper to get canvas-relative coordinates from a Touch event
     const getCanvasCoordsFromTouchEvent = (event: React.TouchEvent<HTMLDivElement>): Coords | null => {
         if (!containerCanvaRef.current || event.touches.length === 0) return null;
-        // Use the first touch point
         const touch = event.touches[0];
         const rectCanva = containerCanvaRef.current.getBoundingClientRect();
-        // Calculate x/y based on clientX/Y relative to the canvas rect
         const x = touch.clientX - rectCanva.left;
         const y = touch.clientY - rectCanva.top;
         return { x, y };
@@ -200,41 +183,30 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
     const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
         if (!isEditMode || editAction !== 'adding') return;
         event.preventDefault();
-
-        // Action: Use the helper function
         const canvasCoords = getCanvasCoordsFromTouchEvent(event);
-
         if (!canvasCoords) return;
-
         setIsDrawing(true);
-        setStartCoords(canvasCoords); // startCoords now correctly stores canvas-relative
+        setStartCoords(canvasCoords);
         setCurrentRect({ x: canvasCoords.x, y: canvasCoords.y, width: 0, height: 0 });
     };
 
     const handleTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
         if (!isDrawing || !startCoords) return;
         event.preventDefault();
-
-        // Action: Use the helper function
         const currentCanvasCoords = getCanvasCoordsFromTouchEvent(event);
-
         if (!currentCanvasCoords) return;
-
         const startCanvasX = startCoords.x;
         const startCanvasY = startCoords.y;
-        const currentCanvasX = currentCanvasCoords.x; // Already canvas-relative
-        const currentCanvasY = currentCanvasCoords.y; // Already canvas-relative
-
+        const currentCanvasX = currentCanvasCoords.x;
+        const currentCanvasY = currentCanvasCoords.y;
         const x = Math.min(startCanvasX, currentCanvasX);
         const y = Math.min(startCanvasY, currentCanvasY);
         const width = Math.abs(startCanvasX - currentCanvasX);
         const height = Math.abs(startCanvasY - currentCanvasY);
-
         setCurrentRect({ x, y, width, height });
     };
 
     const finalizeDrawing = () => {
-        // Action: Check existing state names
         if (!isDrawing || !startCoords || !currentRect) {
             setIsDrawing(false);
             setStartCoords(null);
@@ -242,67 +214,41 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
             return;
         }
         setIsDrawing(false);
-
-        // Action: Check existing ref name (containerCanvaRef) and state (currentRect)
         if (containerCanvaRef.current && currentRect.width > 1 && currentRect.height > 1) {
-            // Use transform state variables updated by onTransformed callback
             const scale = transformCurrentData.scale;
             const positionX = transformCurrentData.x;
             const positionY = transformCurrentData.y;
-
-            // Calculate drawn rectangle on the "original" image canvas space
-            // currentRect IS ALREADY relative to the canvas if getRelativeCoords uses containerCanvaRef
-            // AND if nativeEvent.offsetX/Y are used in touch handlers relative to the overlay
-            // that covers the canvas.
             const drawnRectOnCanvasX = currentRect.x;
             const drawnRectOnCanvasY = currentRect.y;
             const drawnRectOnCanvasWidth = currentRect.width;
             const drawnRectOnCanvasHeight = currentRect.height;
-
-            // The actual transformation for drawing was:
-            // const imageX = (currentRect.x - positionX) / scale;
-            // const imageY = (currentRect.y - positionY) / scale;
-            // const imageWidth = currentRect.width / scale;
-            // const imageHeight = currentRect.height / scale;
-            // This part maps the currentRect (which is canvas-relative due to new getRelativeCoords and touch)
-            // to the "actual unscaled, unpanned" image coordinates *within the canvas*.
-            // This step is CRUCIAL.
-
             const imageX = (drawnRectOnCanvasX - positionX) / scale;
             const imageY = (drawnRectOnCanvasY - positionY) / scale;
             const imageWidth = drawnRectOnCanvasWidth / scale;
             const imageHeight = drawnRectOnCanvasHeight / scale;
 
-
-            if (canvasWidth === 0 || canvasHeight === 0) { // canvasWidth/Height are from context baseDims
+            if (canvasWidth === 0 || canvasHeight === 0) {
                 console.error("Canvas dimensions from context are zero. Cannot calculate relative hotspot.");
                 setStartCoords(null);
                 setCurrentRect(null);
                 return;
             }
-
-            // Calculate percentage relative to the FIXED CANVAS dimensions
             let relativeRect: Rect = {
                 x: (imageX / canvasWidth) * 100,
                 y: (imageY / canvasHeight) * 100,
                 width: (imageWidth / canvasWidth) * 100,
                 height: (imageHeight / canvasHeight) * 100,
             };
-
-            // Clamp, log, call onHotspotDrawn (as in your previous handleMouseUp)
             relativeRect.x = Math.max(0, Math.min(relativeRect.x, 100));
             relativeRect.y = Math.max(0, Math.min(relativeRect.y, 100));
             relativeRect.width = Math.max(0.1, Math.min(relativeRect.width, 100 - relativeRect.x));
             relativeRect.height = Math.max(0.1, Math.min(relativeRect.height, 100 - relativeRect.y));
             onHotspotDrawn(relativeRect);
         }
-
-        // Action: Use existing state setters
         setStartCoords(null);
         setCurrentRect(null);
     };
 
-    // handleMouseUp already resets state, use it for touchEnd too
     const handleTouchEnd = () => {
         finalizeDrawing();
     };
@@ -313,11 +259,9 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
         } else if (isEditMode && editAction === 'selecting_for_edit') {
             onSelectHotspotForEditing?.(hotspotId);
         } else if (!isEditMode) {
-            // Encontra o hotspot para passar seu ID.
-            // Mapdraw.tsx determinará a ação com base no tipo de link do hotspot.
             const hotspot = hotspots.find(h => h.id === hotspotId);
             if (hotspot) {
-                onHotspotClick(hotspot.id); // Passa o ID do hotspot
+                onHotspotClick(hotspot.id);
             }
         }
     };
@@ -329,18 +273,20 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
     };
 
     const handleTransformed = useCallback((_ref: ReactZoomPanPinchRef, state: { scale: number; positionX: number; positionY: number }) => {
-        setTransformCurrentData({ scale: state.scale, x: state.positionX, y: state.positionY });
-    }, []);
+        const newTransform = { scale: state.scale, x: state.positionX, y: state.positionY };
+        setTransformCurrentData(newTransform);
+        if (onTransformChange && isReadyToSaveChangesRef.current && !isImageLoading) {
+            onTransformChange(newTransform);
+        }
+    }, [onTransformChange, isImageLoading]);
 
-    function imageChangeParams(imageLoading = false) {
-        if (!containerCanvaRef.current || !containerRef.current) return null;
+    const imageChangeParams = useCallback(() => {
+        if (!containerCanvaRef.current || !containerRef.current || !transformWrapperRef.current) return;
         const rectCanva = containerCanvaRef.current.getBoundingClientRect();
         const container = containerRef.current.getBoundingClientRect();
-
         let scale = 1;
         let x = 0;
         let y = 0;
-
         if (container.width > canvasWidth && container.height > canvasHeight) {
             scale = 1;
             x = rectCanva.left < 0 ? (-1) * rectCanva.left / 2 : 0;
@@ -348,53 +294,70 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
         } else {
             const percWidth = container.width / canvasWidth;
             const percHeight = container.height / canvasHeight;
-
             scale = percWidth < percHeight ? percWidth : percHeight;
-
             x = ((canvasWidth - container.width) / 2) + (container.width - canvasWidth * scale) / 2;
             y = ((canvasHeight - container.height) / 2) + (container.height - canvasHeight * scale) / 2;
         }
-
         const wrapperRefCurrent = transformWrapperRef.current;
         if (wrapperRefCurrent?.setTransform) {
-            wrapperRefCurrent.setTransform(x, y, scale, 0); // x=0, y=0, scale=1, animationTime=0
+            wrapperRefCurrent.setTransform(x, y, scale, imgAnimationTime);
+            const calculatedTransform = { scale, x, y };
+            setTransformData(calculatedTransform);
+            setTransformCurrentData(calculatedTransform);
         }
-        setTransformData({ scale, x, y });
-        if (imageLoading) {
-            setIsImageLoading(false);
-        }
-    }
+    }, [canvasWidth, canvasHeight]);
 
     useEffect(() => {
         setIsImageLoading(true);
+        isReadyToSaveChangesRef.current = false;
+    }, [imageUrl, currentMapId]);
 
-        const timerId = setTimeout(() => {
-            imageChangeParams(true);
-        }, 550);
-
+    const handleImageLoad = useCallback(() => {
+        const applyInitialState = () => {
+            if (transformWrapperRef.current) {
+                transformWrapperRef.current.resetTransform(0);
+                if (initialTransformForCurrentMap) {
+                    transformWrapperRef.current.setTransform(
+                        initialTransformForCurrentMap.x,
+                        initialTransformForCurrentMap.y,
+                        initialTransformForCurrentMap.scale,
+                        imgAnimationTime
+                    );
+                    setTransformData(initialTransformForCurrentMap);
+                    setTransformCurrentData(initialTransformForCurrentMap);
+                } else {
+                    imageChangeParams();
+                }
+            }
+            setIsImageLoading(false);
+            isReadyToSaveChangesRef.current = true;
+        };
+        const timerId = setTimeout(applyInitialState, 0);
         return () => clearTimeout(timerId);
+    }, [initialTransformForCurrentMap, imageChangeParams, setIsImageLoading]);
 
-    }, [currentMapId]);
+    const handleImageError = useCallback(() => {
+        console.error(`MapImageViewer: Failed to load image: ${imageUrl}`);
+        setIsImageLoading(false);
+        isReadyToSaveChangesRef.current = true;
+    }, [imageUrl, setIsImageLoading]);
 
     useEffect(() => {
         const timerId = setTimeout(() => {
-            imageChangeParams(false);
+            imageChangeParams();
         }, 50);
-
         return () => clearTimeout(timerId);
-    }, [isFullscreenActive, isWindowMaximized]);
+    }, [isFullscreenActive, isWindowMaximized, imageChangeParams]);
 
     useEffect(() => {
         if (!containerRef.current) return;
         const container = containerRef.current.getBoundingClientRect();
-
         const canvaStyle: React.CSSProperties = {
             left: (container.width > canvasWidth ? `${(-1) * (canvasWidth - container.width) / 2}px` : `${(container.width - canvasWidth) / 2}px`),
             top: (container.height > canvasHeight ? `${(-1) * (canvasHeight - container.height) / 2}px` : `${(container.height - canvasHeight) / 2}px`),
             width: `${canvasWidth}px`,
             height: `${canvasHeight}px`,
         };
-
         setContainerCanvaStyle(canvaStyle);
     }, [containerDims, controlsHeight, canvasWidth, canvasHeight]);
 
@@ -412,7 +375,6 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
         }
     }), [transformData]);
 
-    // Dynamic Classes & Styles Calculation
     const containerClasses = classNames(
         "rmn-container-map block overflow-hidden bg-gray-200",
         {
@@ -463,13 +425,11 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
                 containerDims={containerDims}
                 controlsHeight={controlsHeight}
             />
-
             <Container
                 ref={containerCanvaRef}
                 className={containerCanvaClasses}
                 style={containerCanvaStyle}
             >
-
                 <TransformWrapper
                     ref={transformWrapperRef}
                     initialScale={1}
@@ -488,14 +448,14 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
                                 wrapperStyle={containerTransForm}
                                 contentStyle={containerTransForm}
                             >
-
                                 <img
                                     ref={imgRef}
                                     src={imageUrl}
                                     alt="Map Diagram"
+                                    onLoad={handleImageLoad}
+                                    onError={handleImageError}
                                     className={imageClasses}
                                 />
-
                                 {hotspots.map((hotspot) => (
                                     <MapHotspotDisplay
                                         key={hotspot.id}
@@ -508,7 +468,6 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
                                         scale={transformCurrentData.scale}
                                     />
                                 ))}
-
                                 {isEditMode && editAction === 'adding' && (
                                     <div
                                         className="absolute inset-0 z-[4] cursor-crosshair"
@@ -526,21 +485,17 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
                         </React.Fragment>
                     )}
                 </TransformWrapper>
-
-                {
-                    isDrawing && currentRect && editAction === 'adding' && (
-                        <div
-                            className={drawingRectClasses}
-                            style={{
-                                left: `${currentRect.x}px`,
-                                top: `${currentRect.y}px`,
-                                width: `${currentRect.width}px`,
-                                height: `${currentRect.height}px`,
-                            }}
-                        />
-                    )
-                }
-
+                {isDrawing && currentRect && editAction === 'adding' && (
+                    <div
+                        className={drawingRectClasses}
+                        style={{
+                            left: `${currentRect.x}px`,
+                            top: `${currentRect.y}px`,
+                            width: `${currentRect.width}px`,
+                            height: `${currentRect.height}px`,
+                        }}
+                    />
+                )}
             </Container>
         </Container >
     );

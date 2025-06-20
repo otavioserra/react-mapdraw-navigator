@@ -49,6 +49,13 @@ export interface MapDisplayData {
 /** Possible actions while in edit mode */
 export type EditAction = 'none' | 'adding' | 'selecting_for_deletion' | 'changing_root_image' | 'editing_hotspot' | 'selecting_for_edit';
 
+/** Data structure for storing transform state of a map view. */
+export interface MapViewTransform {
+    scale: number;
+    x: number;
+    y: number;
+}
+
 /** Defines the structure of the object returned by the useMapNavigation hook. */
 interface UseMapNavigationReturn {
     /** The ID of the currently displayed map, or null if none is loaded. */
@@ -74,6 +81,9 @@ interface UseMapNavigationReturn {
     loadNewMapData: (jsonString: string) => void; // Function to load new data set
     updateMapImageUrl: (mapId: string, newImageUrl: string) => void;
     updateHotspotDetails: (targetMapId: string, hotspotIdToUpdate: string, newDetails: Partial<Omit<Hotspot, 'id' | 'x' | 'y' | 'width' | 'height'>>) => void; // Function to update hotspot details
+    /** Stores the transform state (zoom/pan) for each map ID. */
+    mapViewTransforms: Record<string, MapViewTransform>;
+    updateMapViewTransform: (mapId: string, transform: MapViewTransform) => void;
 }
 
 // Helper function to normalize loaded map data
@@ -142,6 +152,8 @@ export const useMapNavigation = (
     const [error, setError] = useState<string | null>(null);
     /** State for the current edit action */
     const [editAction, setEditAction] = useState<EditAction>('none');
+    /** State to store zoom/pan transforms for each map. */
+    const [mapViewTransforms, setMapViewTransforms] = useState<Record<string, MapViewTransform>>({});
 
     /** State holding the complete, potentially modified, map data collection. */
     const [managedMapData, setManagedMapData] = useState<MapCollection>(() => {
@@ -414,6 +426,7 @@ export const useMapNavigation = (
                 setNavigationHistory([]);
                 setError(null);
                 setEditAction('none');
+                setMapViewTransforms({}); // Reset stored transforms for the new dataset
             } else {
                 console.error("Failed to load new data: Parsed data is not a valid non-empty object.");
                 setError("Failed to load new data: Invalid JSON structure.");
@@ -506,6 +519,24 @@ export const useMapNavigation = (
         });
     }, [setManagedMapData, setError]); // Dependencies: state setters
 
+    /**
+     * Updates the stored transform (zoom/pan) state for a given map ID.
+     * Only updates if the new transform values are different from the existing ones.
+     * @param mapId The ID of the map whose transform state is being updated.
+     * @param newTransform The new transform state (scale, x, y).
+     */
+    const updateMapViewTransform = useCallback((mapId: string, newTransform: MapViewTransform) => {
+        if (mapId) { // Ensure mapId is valid before updating
+            setMapViewTransforms(prevTransforms => {
+                const existingTransform = prevTransforms[mapId];
+                if (existingTransform && existingTransform.scale === newTransform.scale && existingTransform.x === newTransform.x && existingTransform.y === newTransform.y) {
+                    return prevTransforms; // No change needed, return same object to prevent re-render
+                }
+                return { ...prevTransforms, [mapId]: newTransform };
+            });
+        }
+    }, []);
+
     // Return the public API of the hook
     return {
         currentMapId,
@@ -522,5 +553,7 @@ export const useMapNavigation = (
         loadNewMapData,
         updateMapImageUrl,
         updateHotspotDetails,
+        mapViewTransforms,
+        updateMapViewTransform,
     };
 };
