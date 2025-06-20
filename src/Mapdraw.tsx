@@ -9,7 +9,7 @@ import Heading from './components/Heading';
 import Label from './components/Label';
 import Input from './components/Input';
 import Form from './components/Form';
-import { useMapNavigation, Hotspot, MapCollection, HotspotLinkType, HotspotUrlTarget, MapViewTransform } from './hooks/useMapNavigation';
+import { useMapNavigation, Hotspot, MapCollection, HotspotLinkType, HotspotUrlTarget } from './hooks/useMapNavigation';
 import { Provider as TooltipProvider } from '@radix-ui/react-tooltip';
 import { useMapInstanceContext } from './contexts/MapInstanceContext';
 
