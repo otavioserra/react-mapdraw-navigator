@@ -46,7 +46,7 @@ const MapHotspotDisplay: React.FC<MapHotspotDisplayProps> = ({
         }
     } else {
         // View Mode
-        modeClasses = `cursor-pointer border border-dashed border-black/40 bg-green-500/30 hover:bg-green-500/40 pointer-events-auto`;
+        modeClasses = `cursor-pointer border-5 border-dashed border-green-500 bg-green-600/10 hover:bg-green-500/40 pointer-events-auto`;
     }
 
     const combinedClasses = `${baseClasses} ${modeClasses}`;
