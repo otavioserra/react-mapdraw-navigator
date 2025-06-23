@@ -25,14 +25,20 @@ const MapdrawInstanceWrapper: React.FC<MapdrawInstanceWrapperProps> = ({
     const [isWindowMaximized, setIsWindowMaximized] = useState<boolean>(false);
     const originalContainerClassesRef = useRef<string>('');
 
-    // Effect to set up observer
+    // Flag to check if running inside an iframe
+    const isInIframe = window.self !== window.top;
+
+    // Effect to set up observer for container dimensions
     useEffect(() => {
         const observedElement = containerElement;
         if (!observedElement) return;
 
-        // --- Setup ResizeObserver ---
+        // Store original classes only once on initial mount
+        if (!originalContainerClassesRef.current) {
+            originalContainerClassesRef.current = observedElement.className;
+        }
+
         const updateDimensions = () => {
-            // Use functional update for safety with observer callback timing
             setCurrentContainerDims(prevDims => {
                 const rect = observedElement.getBoundingClientRect();
                 const style = window.getComputedStyle(observedElement);
@@ -49,27 +55,22 @@ const MapdrawInstanceWrapper: React.FC<MapdrawInstanceWrapperProps> = ({
 
         const resizeObserver = new ResizeObserver(updateDimensions);
         resizeObserver.observe(observedElement);
-        updateDimensions(); // Initial call to set dimensions
+        updateDimensions(); // Initial call
 
-        // Cleanup
         return () => {
             resizeObserver.unobserve(observedElement);
         };
-
     }, [containerElement]);
 
-    // Add another useEffect for native fullscreen changes
+    // Effect for native fullscreen changes
     useEffect(() => {
         const handleActualFullscreenChange = () => {
             setIsFullscreenActive(!!document.fullscreenElement);
         };
 
         document.addEventListener('fullscreenchange', handleActualFullscreenChange);
-        // Also for webkit browsers
         document.addEventListener('webkitfullscreenchange', handleActualFullscreenChange);
-        // Also for ms browsers
         document.addEventListener('msfullscreenchange', handleActualFullscreenChange);
-
 
         return () => {
             document.removeEventListener('fullscreenchange', handleActualFullscreenChange);
@@ -78,24 +79,44 @@ const MapdrawInstanceWrapper: React.FC<MapdrawInstanceWrapperProps> = ({
         };
     }, []);
 
-    // Add useEffect to manage full window classes on containerElement
+    // Effect to listen for messages from parent (if in iframe) for window maximization status
     useEffect(() => {
-        if (!containerElement) return;
+        if (!isInIframe) return;
+
+        const handleMessage = (event: MessageEvent) => {
+            // IMPORTANT: For production, you should verify event.origin
+            // Example: if (event.origin !== "https://your-parent-domain.com") return;
+
+            if (event.data && typeof event.data === 'object' && event.data.type === 'MAPDRAW_MAXIMIZE_STATUS_UPDATE') {
+                setIsWindowMaximized(event.data.isMaximized);
+            }
+        };
+
+        window.addEventListener('message', handleMessage);
+        return () => {
+            window.removeEventListener('message', handleMessage);
+        };
+    }, [isInIframe]);
+
+
+    // Effect to apply/remove "full window" classes when NOT in an iframe
+    useEffect(() => {
+        if (isInIframe) return;
 
         if (isWindowMaximized) {
-            // Store original classes if not already stored
+            // Store original classes if not already stored (might be redundant but safe)
             if (!originalContainerClassesRef.current) {
                 originalContainerClassesRef.current = containerElement.className;
             }
-            // Apply fullscreen window classes
             containerElement.className = 'fixed inset-0 w-screen h-screen bg-white z-40 overflow-auto p-0 m-0 border-0 rounded-none react-mapdraw-navigator';
         } else {
-            // Restore original classes if they were stored
+            // Restore original classes only if they were stored
             if (originalContainerClassesRef.current) {
                 containerElement.className = originalContainerClassesRef.current;
             }
         }
-    }, [isWindowMaximized, containerElement]);
+    }, [isWindowMaximized, containerElement, isInIframe]);
+
 
     const handleControlsHeightChange = useCallback((height: number) => {
         setCurrentControlsHeight(prevHeight => {
@@ -106,34 +127,33 @@ const MapdrawInstanceWrapper: React.FC<MapdrawInstanceWrapperProps> = ({
         });
     }, []);
 
-    // Add handler to toggle window maximized mode
+    // Handler to toggle window maximized mode
     const handleToggleWindowMaximize = useCallback(() => {
-        setIsWindowMaximized(prev => !prev);
-    }, []);
+        if (isInIframe) {
+            // If inside an iframe, send a message to the parent to request maximization toggle
+            window.parent.postMessage({
+                type: 'REQUEST_MAPDRAW_MAXIMIZE_TOGGLE',
+                maximize: !isWindowMaximized // Tell parent the desired new state
+            }, '*'); // IMPORTANT: Replace '*' with the parent's origin in production
+        } else {
+            // If not in iframe, toggle locally
+            setIsWindowMaximized(prev => !prev);
+        }
+    }, [isInIframe, isWindowMaximized]);
 
-    // Add handler to toggle fullscreen
+    // Handler to toggle native fullscreen
     const handleToggleFullscreen = useCallback(() => {
-        if (!containerElement) return; // Guard clause
+        if (!containerElement) return;
 
         if (!document.fullscreenElement) {
-            containerElement.requestFullscreen()
-                .then(() => {
-                    // State update might be handled by the event listener,
-                    // but setting it here can be a good immediate feedback
-                    // setIsFullscreenActive(true); 
-                })
-                .catch(err => {
-                    console.error(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
-                });
+            containerElement.requestFullscreen().catch(err => {
+                console.error(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+            });
         } else {
             if (document.exitFullscreen) {
-                document.exitFullscreen()
-                    .then(() => {
-                        // setIsFullscreenActive(false);
-                    })
-                    .catch(err => {
-                        console.error(`Error attempting to exit full-screen mode: ${err.message} (${err.name})`);
-                    });
+                document.exitFullscreen().catch(err => {
+                    console.error(`Error attempting to exit full-screen mode: ${err.message} (${err.name})`);
+                });
             }
         }
     }, [containerElement]);
