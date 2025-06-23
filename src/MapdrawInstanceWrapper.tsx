@@ -99,23 +99,24 @@ const MapdrawInstanceWrapper: React.FC<MapdrawInstanceWrapperProps> = ({
     }, [isInIframe]);
 
 
-    // Effect to apply/remove "full window" classes when NOT in an iframe
+    // Effect to apply/remove "full window" classes.
+    // This works for both direct embeds and when inside an iframe.
     useEffect(() => {
-        if (isInIframe) return;
+        if (!containerElement) return;
 
         if (isWindowMaximized) {
-            // Store original classes if not already stored (might be redundant but safe)
+            // Store original classes if not already stored
             if (!originalContainerClassesRef.current) {
                 originalContainerClassesRef.current = containerElement.className;
             }
             containerElement.className = 'fixed inset-0 w-screen h-screen bg-white z-40 overflow-auto p-0 m-0 border-0 rounded-none react-mapdraw-navigator';
         } else {
-            // Restore original classes only if they were stored
+            // Restore original classes
             if (originalContainerClassesRef.current) {
                 containerElement.className = originalContainerClassesRef.current;
             }
         }
-    }, [isWindowMaximized, containerElement, isInIframe]);
+    }, [isWindowMaximized, containerElement]);
 
 
     const handleControlsHeightChange = useCallback((height: number) => {
