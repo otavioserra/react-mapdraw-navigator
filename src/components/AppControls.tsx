@@ -31,6 +31,7 @@ interface AppControlsProps {
     isWindowMaximized?: boolean;
     onToggleWindowMaximize?: () => void;
     hotspotToEditId?: string | null;
+    onSaveInitialView?: () => void;
 }
 
 const NormalModeControls: React.FC<Pick<AppControlsProps, 'onExportJson' | 'onToggleEditMode'>> = ({
@@ -76,6 +77,7 @@ const AppControls: React.FC<AppControlsProps> = ({
     onToggleFullscreen,
     isWindowMaximized = false,
     onToggleWindowMaximize,
+    onSaveInitialView,
 }) => {
     const isBackEnabled = canGoBack && !isEditMode;
     const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -214,6 +216,18 @@ const AppControls: React.FC<AppControlsProps> = ({
                         : (isEditMode)
                             ? (
                                 <>
+                                    <Button
+                                        variant="default" // You might want a specific 'save' variant
+                                        onClick={onSaveInitialView}
+                                        tooltipContent="Save Current View as Initial"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-6">
+                                            <path d="M3.375 3C2.339 3 1.5 3.84 1.5 4.875v14.25C1.5 20.16 2.34 21 3.375 21h17.25c1.035 0 1.875-.84 1.875-1.875V7.151c0-.462-.186-.902-.518-1.234L18.083 1.766A1.875 1.875 0 0 0 16.793 1.5H7.125A1.875 1.875 0 0 0 5.25 3.375V4.5a.75.75 0 0 0 1.5 0V3.375a.375.375 0 0 1 .375-.375h9.668a.375.375 0 0 1 .265.11l3.582 3.582a.375.375 0 0 1 .11.265v11.732a.375.375 0 0 1-.375.375H3.375a.375.375 0 0 1-.375-.375V4.875C3 4.339 3.439 3.9 3.9 3.9H5.25a.75.75 0 0 0 0-1.5H3.9a.75.75 0 0 0-.525.225Z" />
+                                            <path d="M8.25 12a.75.75 0 0 0-1.5 0v6a.75.75 0 0 0 1.5 0v-6Z" />
+                                            <path d="M18 12.75a.75.75 0 0 1 .75-.75h.008a.75.75 0 0 1 .75.75v3a.75.75 0 0 1-1.5 0v-3a.75.75 0 0 1 .75-.75Z" />
+                                            <path d="M13.875 7.5a1.125 1.125 0 1 0 0-2.25 1.125 1.125 0 0 0 0 2.25Z" />
+                                        </svg>
+                                    </Button>
                                     <Button
                                         variant="add"
                                         className={editAction === 'adding' ? 'ring-2 ring-green-500 ring-opacity-75 focus:ring-green-500' : ''}

@@ -67,7 +67,8 @@ const Mapdraw: React.FC<MapdrawProps> = ({
         updateHotspotDetails,
         updateMapImageUrl,
         mapViewTransforms,
-        updateMapViewTransform
+        updateMapViewTransform,
+        saveMapInitialTransform
     } = useMapNavigation(rootMapId, initialDataJsonString);
 
     const { rootContainerElement } = useMapInstanceContext();
@@ -479,7 +480,28 @@ const Mapdraw: React.FC<MapdrawProps> = ({
         setNewRootUrlInput(''); // Clear the input
     }, [setEditAction]);
 
-    // --- Styling ---
+    // --- New Logic for Saving Initial View ---
+    const handleSaveInitialView = useCallback(() => {
+        if (currentMapId) {
+            const currentTransform = mapViewTransforms[currentMapId];
+            if (currentTransform) {
+                saveMapInitialTransform(currentMapId, currentTransform);
+                // Optional: Provide user feedback, e.g., a toast notification
+                // alert(`Initial view for map '${currentMapId}' saved!`);
+            } else {
+                console.warn("Could not save initial view: No current transform available for this map.");
+            }
+        }
+    }, [currentMapId, mapViewTransforms, saveMapInitialTransform]);
+
+    // --- New Logic for Initial Transform Priority ---
+    // 1. Saved initial transform from the main data object
+    const savedInitialTransform = currentMapId ? managedMapData[currentMapId]?.initialTransform : undefined;
+    // 2. Transform from the current user session
+    const sessionTransform = currentMapId ? mapViewTransforms[currentMapId] : undefined;
+    // 3. The final transform to be used (saved takes priority over session)
+    const initialTransform = sessionTransform ?? savedInitialTransform;
+
     const containerClasses = `mapdraw-container relative ${className || ''}`.trim(); // Removed 'relative' as it might not be needed here anymore
 
     // --- Render Logic (Refactored) ---
@@ -512,6 +534,7 @@ const Mapdraw: React.FC<MapdrawProps> = ({
                     isWindowMaximized={isWindowMaximized}
                     onToggleWindowMaximize={onToggleWindowMaximize}
                     hotspotToEditId={hotspotToEditId}
+                    onSaveInitialView={handleSaveInitialView}
                 />
 
                 {/* Display Error Messages using Container */}
@@ -536,7 +559,7 @@ const Mapdraw: React.FC<MapdrawProps> = ({
                         isFullscreenActive={isFullscreenActive}
                         isWindowMaximized={isWindowMaximized}
                         onSelectHotspotForEditing={handleSelectHotspotForEditing}
-                        initialTransformForCurrentMap={currentMapId ? mapViewTransforms[currentMapId] : undefined}
+                        initialTransformForCurrentMap={initialTransform}
                         onTransformChange={currentMapId && updateMapViewTransform ? (transform) => updateMapViewTransform(currentMapId, transform) : undefined}
                     />
                 )}

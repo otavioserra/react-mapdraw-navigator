@@ -33,6 +33,8 @@ export interface MapDefinition {
     imageUrl: string;
     /** Array of hotspots present on this map. */
     hotspots: Hotspot[];
+    /** Optional saved initial transform for this map. */
+    initialTransform?: MapViewTransform;
 }
 
 /** Represents the entire collection of maps, keyed by their unique ID. */
@@ -84,6 +86,7 @@ interface UseMapNavigationReturn {
     /** Stores the transform state (zoom/pan) for each map ID. */
     mapViewTransforms: Record<string, MapViewTransform>;
     updateMapViewTransform: (mapId: string, transform: MapViewTransform) => void;
+    saveMapInitialTransform: (mapId: string, transform: MapViewTransform) => void;
 }
 
 // Helper function to normalize loaded map data
@@ -93,6 +96,7 @@ const normalizeMapData = (data: Record<string, any>): MapCollection => {
         if (Object.prototype.hasOwnProperty.call(data, mapId)) {
             const mapDef = data[mapId];
             normalizedData[mapId] = {
+                initialTransform: mapDef.initialTransform,
                 imageUrl: mapDef.imageUrl, // Ensure imageUrl is directly assigned
                 hotspots: (mapDef.hotspots || []).map((hs: any) => {
                     let determinedLinkType = hs.linkType;
@@ -537,6 +541,30 @@ export const useMapNavigation = (
         }
     }, []);
 
+    /**
+     * Saves the provided transform as the default initial view for a specific map.
+     * This is persisted in the managedMapData.
+     * @param mapId The ID of the map to save the transform for.
+     * @param transform The transform state (scale, x, y) to save.
+     */
+    const saveMapInitialTransform = useCallback((mapId: string, transform: MapViewTransform) => {
+        setError(null);
+        setManagedMapData(prevMapData => {
+            const newMapData = JSON.parse(JSON.stringify(prevMapData));
+            const mapDef = newMapData[mapId];
+
+            if (!mapDef) {
+                const errorMsg = `Cannot save initial transform: Map definition not found for ID '${mapId}'`;
+                console.error(errorMsg);
+                setError(errorMsg);
+                return prevMapData;
+            }
+
+            mapDef.initialTransform = transform;
+            return newMapData;
+        });
+    }, [setManagedMapData, setError]);
+
     // Return the public API of the hook
     return {
         currentMapId,
@@ -555,5 +583,6 @@ export const useMapNavigation = (
         updateHotspotDetails,
         mapViewTransforms,
         updateMapViewTransform,
+        saveMapInitialTransform,
     };
 };

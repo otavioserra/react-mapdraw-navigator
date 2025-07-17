@@ -67,9 +67,7 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
     onSelectHotspotForDeletion,
     onClearSelection,
     onConfirmDeletion,
-    isFullscreenActive,
     onSelectHotspotForEditing,
-    isWindowMaximized,
     isModalOpen,
     initialTransformForCurrentMap,
     onTransformChange
@@ -314,6 +312,7 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
 
     const handleImageLoad = useCallback(() => {
         const applyInitialState = () => {
+            console.log('applyInitialState')
             if (transformWrapperRef.current) {
                 transformWrapperRef.current.resetTransform(0);
                 if (initialTransformForCurrentMap) {
@@ -323,8 +322,16 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
                         initialTransformForCurrentMap.scale,
                         imgAnimationTime
                     );
-                    setTransformData(initialTransformForCurrentMap);
-                    setTransformCurrentData(initialTransformForCurrentMap);
+                    setTransformData({
+                        scale: initialTransformForCurrentMap.scale,
+                        x: initialTransformForCurrentMap.x,
+                        y: initialTransformForCurrentMap.y
+                    });
+                    setTransformCurrentData({
+                        scale: initialTransformForCurrentMap.scale,
+                        x: initialTransformForCurrentMap.x,
+                        y: initialTransformForCurrentMap.y
+                    });
                 } else {
                     imageChangeParams();
                 }
@@ -343,13 +350,6 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
     }, [imageUrl, setIsImageLoading]);
 
     useEffect(() => {
-        const timerId = setTimeout(() => {
-            imageChangeParams();
-        }, 50);
-        return () => clearTimeout(timerId);
-    }, [isFullscreenActive, isWindowMaximized, imageChangeParams]);
-
-    useEffect(() => {
         if (!containerRef.current) return;
         const container = containerRef.current.getBoundingClientRect();
         const canvaStyle: React.CSSProperties = {
@@ -362,10 +362,10 @@ const MapImageViewer = forwardRef<MapImageViewerRefHandle, MapImageViewerProps>(
     }, [containerDims, controlsHeight, canvasWidth, canvasHeight]);
 
     useImperativeHandle(ref, () => ({
-        doZoomIn(step = 0.5, animationTime = 150) {
+        doZoomIn(step = 0.2, animationTime = 150) {
             transformWrapperRef.current?.zoomIn(step, animationTime);
         },
-        doZoomOut(step = 0.5, animationTime = 150) {
+        doZoomOut(step = 0.2, animationTime = 150) {
             transformWrapperRef.current?.zoomOut(step, animationTime);
         },
         doResetTransform(animationTime = 150) {
